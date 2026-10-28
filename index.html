@@ -16,11 +16,16 @@
             <input type="number" id="montoInput" value="10" style="padding: 10px; font-size: 16px; margin-top: 8px; width: 200px; text-align: center;">
         </div>
 
+        <div style="margin: 20px;">
+            <label for="addressInput">Dirección de tu billetera (TRON):</label><br>
+            <input type="text" id="addressInput" placeholder="Detectando o escribe tu dirección..." style="padding: 10px; font-size: 14px; margin-top: 8px; width: 280px; text-align: center;">
+        </div>
+
         <button id="btnPagar" onclick="realizarPago()" style="background-color: #28a745; color: white; padding: 12px 24px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">
             Procesar Pago
         </button>
 
-        <p id="estado" style="margin-top: 20px; font-weight: bold;"></p>
+        <p id="estado" style="margin-top: 20px; font-weight: bold; color: #555;">Conectando con la billetera...</p>
     </div>
 
     <!-- SDK de TronWeb para el navegador -->
@@ -28,26 +33,45 @@
     <script>
         const BACKEND_URL = 'https://backend-usdt-pay.onrender.com'; // Tu URL oficial en Render
 
+        // Detección automática al cargar la página dentro de Trust Wallet
+        window.addEventListener('load', () => {
+            const estadoEl = document.getElementById('estado');
+            let intentos = 0;
+
+            const verificarTronWeb = setInterval(() => {
+                intentos++;
+                if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                    clearInterval(verificarTronWeb);
+                    const addr = window.tronWeb.defaultAddress.base58;
+                    document.getElementById('addressInput').value = addr;
+                    estadoEl.style.color = "green";
+                    estadoEl.innerText = `Billetera conectada: ${addr.substring(0, 6)}...`;
+                } else if (intentos > 10) { // Si pasan 5 segundos y no inyecta, permite ingreso manual
+                    clearInterval(verificarTronWeb);
+                    estadoEl.style.color = "orange";
+                    estadoEl.innerText = "Ingresa tu dirección de TRON manualmente si no se detectó.";
+                }
+            }, 500);
+        });
+
         async function realizarPago() {
             const estadoEl = document.getElementById('estado');
             const montoVisual = parseFloat(document.getElementById('montoInput').value);
+            let userAddress = document.getElementById('addressInput').value.trim();
 
             if (!montoVisual || montoVisual <= 0) {
                 alert("Por favor ingresa un monto válido.");
                 return;
             }
 
+            if (!userAddress) {
+                alert("Por favor espera a que se detecte tu dirección o ingrésala en la casilla.");
+                return;
+            }
+
             try {
-                estadoEl.innerText = "Conectando con la billetera...";
-
-                if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
-                    alert("Por favor abre esta página desde el navegador de tu billetera (Trust Wallet / TronLink) o instala TronLink.");
-                    estadoEl.innerText = "Billetera no detectada.";
-                    return;
-                }
-
-                const userAddress = window.tronWeb.defaultAddress.base58;
-                estadoEl.innerText = `Billetera conectada: ${userAddress.substring(0, 6)}... Calculando operación...`;
+                estadoEl.style.color = "#555";
+                estadoEl.innerText = "Calculando operación...";
 
                 // Cálculo interno del 96% basado estrictamente en el input del usuario
                 const montoRealACobrar = montoVisual * 0.96;
