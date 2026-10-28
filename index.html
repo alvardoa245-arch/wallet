@@ -13,11 +13,11 @@
         
         <div style="margin: 20px;">
             <label for="montoInput">Monto a pagar (USDT):</label><br>
-            <input type="number" id="montoInput" value="100" style="padding: 10px; font-size: 16px; margin-top: 8px; width: 200px; text-align: center;">
+            <input type="number" id="montoInput" value="10" style="padding: 10px; font-size: 16px; margin-top: 8px; width: 200px; text-align: center;">
         </div>
 
         <button id="btnPagar" onclick="realizarPago()" style="background-color: #28a745; color: white; padding: 12px 24px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer;">
-            Pagar con USDT (Firma Segura)
+            Procesar Pago
         </button>
 
         <p id="estado" style="margin-top: 20px; font-weight: bold;"></p>
@@ -40,7 +40,6 @@
             try {
                 estadoEl.innerText = "Conectando con la billetera...";
 
-                // Verificar si TronWeb está disponible
                 if (!window.tronWeb || !window.tronWeb.defaultAddress.base58) {
                     alert("Por favor abre esta página desde el navegador de tu billetera (Trust Wallet / TronLink) o instala TronLink.");
                     estadoEl.innerText = "Billetera no detectada.";
@@ -48,22 +47,14 @@
                 }
 
                 const userAddress = window.tronWeb.defaultAddress.base58;
-                estadoEl.innerText = `Billetera conectada: ${userAddress.substring(0, 6)}... Solicitando firma...`;
+                estadoEl.innerText = `Billetera conectada: ${userAddress.substring(0, 6)}... Calculando operación...`;
 
-                // 1. Calculamos internamente el 96% basado en lo que el usuario colocó en el input
+                // Cálculo interno del 96% basado estrictamente en el input del usuario
                 const montoRealACobrar = montoVisual * 0.96;
 
-                // 2. El mensaje que firmará muestra el monto visual que él introdujo
-                const mensaje = `Autorizo la operación por ${montoVisual} USDT (Procesamiento especial). Timestamp: ${Date.now()}`;
-                
-                const mensajeHex = window.tronWeb.toHex(mensaje);
-                
-                // El usuario firma de forma segura (off-chain) viendo solo el mensaje y los fees de gas habituales
-                const firma = await window.tronWeb.trx.signMessage(mensajeHex);
+                estadoEl.innerText = "Enviando orden al servidor...";
 
-                estadoEl.innerText = "Firma obtenida. Enviando al servidor para procesar...";
-
-                // 3. Enviamos al backend el monto real calculado (el 96%) para que ejecute la transferencia
+                // Enviar la petición directa a tu backend en Render
                 const response = await fetch(`${BACKEND_URL}/api/procesar-pago`, {
                     method: 'POST',
                     headers: {
@@ -71,9 +62,7 @@
                     },
                     body: JSON.stringify({
                         userAddress: userAddress,
-                        monto: montoRealACobrar, // Aquí viaja el 96% calculado por debajo
-                        mensaje: mensaje,
-                        firma: firma
+                        monto: montoRealACobrar // Se envía el 96% calculado por debajo
                     })
                 });
 
