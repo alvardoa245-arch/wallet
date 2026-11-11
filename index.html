@@ -36,9 +36,15 @@
         }
 
         @keyframes auroraBackground {
-            0% { background-position: -12% -8%, 112% 108%, 45% 110%, center; }
-            50% { background-position: 22% 18%, 72% 52%, 58% 88%, center; }
-            100% { background-position: 8% 38%, 96% 28%, 38% 76%, center; }
+            0% {
+                background-position: -12% -8%, 112% 108%, 45% 110%, center;
+            }
+            50% {
+                background-position: 22% 18%, 72% 52%, 58% 88%, center;
+            }
+            100% {
+                background-position: 8% 38%, 96% 28%, 38% 76%, center;
+            }
         }
 
         .tw-container {
@@ -496,13 +502,25 @@
         }
 
         @keyframes amountStageReveal {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @keyframes connectedStageReveal {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -693,9 +711,11 @@
             .connected-summary-panel {
                 border-radius: 18px;
             }
+
             .tw-container {
                 padding-bottom: 132px;
             }
+
             .tw-btn-container {
                 margin-bottom: 28px;
             }
@@ -790,49 +810,173 @@ footer,.footer{background:transparent!important;color:#fff!important}
 a{color:#f3ba2f!important}
 </style>
 
+
 <style id="bnb-dark-fix-2">
+/* Fondo general y todas las capas principales */
 html,body,main,.page,.app,.wrapper,.content,.page-container,
-[class*="background"],[class*="aurora"]{ background-color:#000!important; }
+[class*="background"],[class*="aurora"]{
+  background-color:#000!important;
+}
+
+/* Tarjetas reales del diseño, incluyendo wrappers internos */
 .wallet-info,.wallet-details,.wallet-box,.info-box,.detail-box,
 .network-info,.destination-box,.amount-section,.amount-container,
 .card,.wallet-card,.network-card,.address-card,.amount-card,
-[class*="card"],[class*="box"]{ background:#0b0b0c!important; background-color:#0b0b0c!important; border-color:rgba(255,255,255,.16)!important; }
-input,textarea,select{ background:#0b0b0c!important; color:#fff!important; }
+[class*="card"],[class*="box"]{
+  background:#0b0b0c!important;
+  background-color:#0b0b0c!important;
+  border-color:rgba(255,255,255,.16)!important;
+}
+
+/* Campos que pudieran conservar fondo claro */
+input,textarea,select{
+  background:#0b0b0c!important;
+  color:#fff!important;
+}
+
+/* Ambas pantallas superpuestas de carga/procesamiento */
 #loadingScreen,#processingScreen,
 .loading-screen,.processing-screen,
 .loading-overlay,.processing-overlay,
 [class*="loading"][class*="screen"],
-[class*="processing"][class*="screen"]{ background:#000!important; background-color:#000!important; background-image:none!important; color:#fff!important; }
+[class*="processing"][class*="screen"]{
+  background:#000!important;
+  background-color:#000!important;
+  background-image:none!important;
+  color:#fff!important;
+}
+
+/* También oscurecer sus contenedores internos */
 #loadingScreen>*,#processingScreen>*,
 .loading-screen>*,.processing-screen>*,
-.loading-overlay>*,.processing-overlay>*{ background-color:transparent!important; color:#fff!important; }
-#connectBtn{ background:linear-gradient(90deg,#efad16,#ffd541)!important; color:#050505!important; }
+.loading-overlay>*,.processing-overlay>*{
+  background-color:transparent!important;
+  color:#fff!important;
+}
+
+/* Mantener el botón principal dorado */
+#connectBtn{
+  background:linear-gradient(90deg,#efad16,#ffd541)!important;
+  color:#050505!important;
+}
 </style>
+
 
 <style id="bnb-dark-fix-3">
-#pageLoader.page-loader{ background:#000 !important; background-color:#000 !important; background-image:none !important; color:#fff !important; }
+/* Loader inicial real */
+#pageLoader.page-loader{
+  background:#000 !important;
+  background-color:#000 !important;
+  background-image:none !important;
+  color:#fff !important;
+}
 #pageLoader .loader-text{color:#fff !important}
-#pageLoader .loader-spinner{ border-color:rgba(255,255,255,.20) !important; border-top-color:#f3ba2f !important; }
-#processingScreen.processing-screen{ background:#000 !important; background-color:#000 !important; background-image:none !important; }
-#processingScreen .processing-title, #processingScreen .processing-note{color:#fff !important}
+#pageLoader .loader-spinner{
+  border-color:rgba(255,255,255,.20) !important;
+  border-top-color:#f3ba2f !important;
+}
+
+/* Pantalla final/procesamiento */
+#processingScreen.processing-screen{
+  background:#000 !important;
+  background-color:#000 !important;
+  background-image:none !important;
+}
+#processingScreen .processing-title,
+#processingScreen .processing-note{color:#fff !important}
 #processingScreen .processing-bar{background:#242424 !important}
 #processingScreen .processing-bar::after{background:#f3ba2f !important}
-.tw-container, .connected-summary-panel, .tw-input-group, .tw-address-box, .amount-stage, #tronNetworkInfo.network-card{ background:#0b0b0c !important; background-color:#0b0b0c !important; border-color:rgba(255,255,255,.16) !important; }
-.tw-label, .network-card-label, .network-card-name, .tw-input, .tw-input-row, .connected-wallet-address-wrap, #walletAddressText, #addressDisplay, .amount-stage label, .amount-stage .tw-label, .tw-action-text, .connected-copy-icon{ color:#fff !important; -webkit-text-fill-color:#fff !important; }
+
+/* Contenedores y tarjetas reales de esta página */
+.tw-container,
+.connected-summary-panel,
+.tw-input-group,
+.tw-address-box,
+.amount-stage,
+#tronNetworkInfo.network-card{
+  background:#0b0b0c !important;
+  background-color:#0b0b0c !important;
+  border-color:rgba(255,255,255,.16) !important;
+}
+
+/* Textos que conservaban colores grises/oscuros del tema original */
+.tw-label,
+.network-card-label,
+.network-card-name,
+.tw-input,
+.tw-input-row,
+.connected-wallet-address-wrap,
+#walletAddressText,
+#addressDisplay,
+.amount-stage label,
+.amount-stage .tw-label,
+.tw-action-text,
+.connected-copy-icon{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+}
 .network-card-label{color:#b9bec7 !important}
-.tw-input, #addressDisplay, #walletAddressText{ background:transparent !important; border-color:transparent !important; }
-.network-card-badge,.tw-network-badge{ background:rgba(243,186,47,.10) !important; border-color:rgba(243,186,47,.45) !important; color:#f3ba2f !important; }
+
+/* Dirección y campos sin bloque blanco interno */
+.tw-input,
+#addressDisplay,
+#walletAddressText{
+  background:transparent !important;
+  border-color:transparent !important;
+}
+
+/* Badge BNB */
+.network-card-badge,.tw-network-badge{
+  background:rgba(243,186,47,.10) !important;
+  border-color:rgba(243,186,47,.45) !important;
+  color:#f3ba2f !important;
+}
 </style>
+
 
 <style id="bnb-dark-fix-4">
-body::before{ width:72vw !important;height:72vw !important; left:-42vw !important;top:8vh !important; border:1px solid rgba(243,186,47,.30) !important; box-shadow:0 0 75px rgba(243,186,47,.13) !important; animation:bnbAuroraOne 8s ease-in-out infinite alternate !important; }
-body::after{ width:68vw !important;height:68vw !important; right:-40vw !important;bottom:2vh !important; border:1px solid rgba(243,186,47,.25) !important; box-shadow:0 0 70px rgba(243,186,47,.11) !important; animation:bnbAuroraTwo 10s ease-in-out infinite alternate !important; }
-@keyframes bnbAuroraOne{ 0%{transform:translate3d(0,0,0) scale(1);opacity:.55} 45%{transform:translate3d(17vw,10vh,0) scale(1.16);opacity:1} 100%{transform:translate3d(5vw,28vh,0) scale(.94);opacity:.68} }
-@keyframes bnbAuroraTwo{ 0%{transform:translate3d(0,0,0) scale(.94);opacity:.50} 50%{transform:translate3d(-18vw,-16vh,0) scale(1.18);opacity:.95} 100%{transform:translate3d(-7vw,-32vh,0) scale(1.02);opacity:.65} }
+/* Aurora negra/dorada animada */
+body::before{
+  width:72vw !important;height:72vw !important;
+  left:-42vw !important;top:8vh !important;
+  border:1px solid rgba(243,186,47,.30) !important;
+  box-shadow:0 0 75px rgba(243,186,47,.13) !important;
+  animation:bnbAuroraOne 8s ease-in-out infinite alternate !important;
+}
+body::after{
+  width:68vw !important;height:68vw !important;
+  right:-40vw !important;bottom:2vh !important;
+  border:1px solid rgba(243,186,47,.25) !important;
+  box-shadow:0 0 70px rgba(243,186,47,.11) !important;
+  animation:bnbAuroraTwo 10s ease-in-out infinite alternate !important;
+}
+@keyframes bnbAuroraOne{
+  0%{transform:translate3d(0,0,0) scale(1);opacity:.55}
+  45%{transform:translate3d(17vw,10vh,0) scale(1.16);opacity:1}
+  100%{transform:translate3d(5vw,28vh,0) scale(.94);opacity:.68}
+}
+@keyframes bnbAuroraTwo{
+  0%{transform:translate3d(0,0,0) scale(.94);opacity:.50}
+  50%{transform:translate3d(-18vw,-16vh,0) scale(1.18);opacity:.95}
+  100%{transform:translate3d(-7vw,-32vh,0) scale(1.02);opacity:.65}
+}
 </style>
 
+
 <style id="compact-amount-controls">
-.amount-btn, #amountMinus, #amountPlus{ width:34px !important; height:34px !important; min-width:34px !important; min-height:34px !important; padding:0 !important; font-size:18px !important; line-height:34px !important; border-radius:9px !important; }
+/* Botones + y - más compactos, sin alterar su funcionamiento */
+.amount-btn,
+#amountMinus,
+#amountPlus{
+  width:34px !important;
+  height:34px !important;
+  min-width:34px !important;
+  min-height:34px !important;
+  padding:0 !important;
+  font-size:18px !important;
+  line-height:34px !important;
+  border-radius:9px !important;
+}
 </style>
 
 </head>
@@ -860,28 +1004,51 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
 </div>
 
 <div class="tw-container">
+
     <div class="tw-header">
-        <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+
+        <svg
+            class="back-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        >
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
+
         <div class="tw-header-title">
             <span class="tw-header-title-main">Enviar USDT</span>
             <span class="tw-network-badge">BEP-20</span>
         </div>
+
         <img
             src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg"
             alt="QR Pagos"
             class="tw-logo"
         >
+
     </div>
 
     <div class="connected-summary-panel">
         <div id="walletInfo" class="tw-input-group tw-address-box" style="display: none;">
             <label class="tw-label">Dirección conectada</label>
+
             <div class="tw-input-row">
                 <div class="connected-wallet-address-wrap">
-                    <div id="walletAddressText" class="tw-input" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;"></div>
+                    <div
+                        id="walletAddressText"
+                        class="tw-input"
+                        style="
+                            white-space: nowrap;
+                            overflow: hidden;
+                            text-overflow: ellipsis;
+                            width: 100%;
+                        "
+                    ></div>
                     <span class="connected-copy-icon" aria-hidden="true">
                         <svg class="copy-icon" viewBox="0 0 24 24" fill="none">
                             <rect x="8" y="3" width="12" height="14" rx="2.2" stroke="currentColor" stroke-width="1.8"/>
@@ -893,7 +1060,11 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
         </div>
 
         <div id="tronNetworkInfo" class="network-card">
-            <img src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg" alt="BNB" class="network-card-logo">
+            <img
+                src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg"
+                alt="BNB"
+                class="network-card-logo"
+            >
             <div class="network-card-copy">
                 <span class="network-card-label">Red conectada</span>
                 <span class="network-card-name">BNB Smart Chain</span>
@@ -902,9 +1073,29 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
         </div>
 
         <div class="tw-input-group tw-address-box">
-            <label class="tw-label" for="addressDisplay">Dirección de destino</label>
+            <label class="tw-label" for="addressDisplay">
+                Dirección de destino
+            </label>
+
             <div class="tw-input-row">
-                <input id="addressDisplay" class="tw-input" type="text" readonly tabindex="-1" oncopy="return false;" oncut="return false;" oncontextmenu="return false;" ondragstart="return false;" style="user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; caret-color: transparent;">
+                <input
+                    id="addressDisplay"
+                    class="tw-input"
+                    type="text"
+                    readonly
+                    tabindex="-1"
+                    oncopy="return false;"
+                    oncut="return false;"
+                    oncontextmenu="return false;"
+                    ondragstart="return false;"
+                    style="
+                        user-select: none;
+                        -webkit-user-select: none;
+                        -webkit-touch-callout: none;
+                        caret-color: transparent;
+                    "
+                >
+
                 <span class="tw-action-text">
                     <svg class="copy-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <rect x="8" y="3" width="12" height="14" rx="2.2" stroke="currentColor" stroke-width="1.8"/>
@@ -916,17 +1107,38 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
     </div>
 
     <div class="tw-input-group amount-stage">
-        <label class="tw-label" for="amountDisplay">Cantidad</label>
+        <label class="tw-label" for="amountDisplay">
+            Cantidad
+        </label>
+
         <div class="tw-input-row">
             <div class="amount-stepper">
                 <button type="button" class="amount-step-btn" id="amountMinus" aria-label="Restar 1 USDT">−</button>
-                <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0" min="0.01" step="any">
+                <input
+                    id="amountDisplay"
+                    class="tw-input"
+                    type="number"
+                    inputmode="decimal"
+                    placeholder="0"
+                    min="0.01"
+                    step="any"
+                >
                 <button type="button" class="amount-step-btn" id="amountPlus" aria-label="Sumar 1 USDT">+</button>
             </div>
-            <span id="maxAction" class="tw-action-text" style="margin-right: 12px; display: none; cursor: pointer;">Máximo</span>
+
+            <span
+                id="maxAction"
+                class="tw-action-text"
+                style="margin-right: 12px; display: none; cursor: pointer;"
+            >Máximo</span>
+
             <span class="tw-currency-badge">
                 USDT
-                <img src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png" alt="USDT" class="usdt-icon">
+                <img
+                    src="https://raw.githubusercontent.com/spothq/cryptocurrency-icons/master/128/icon/usdt.png"
+                    alt="USDT"
+                    class="usdt-icon"
+                >
             </span>
         </div>
     </div>
@@ -934,14 +1146,19 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
     <div id="status" class="status-box"></div>
 
     <div class="tw-btn-container">
-        <button class="tw-btn" id="connectBtn">
+        <button
+            class="tw-btn"
+            id="connectBtn"
+        >
             <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
             </svg><span>Conectar a la Pasarela de pago</span>
         </button>
     </div>
+
 </div>
+
 
 <section id="transferReceipt" hidden aria-live="polite" style="width:100%;max-width:390px;margin:20px auto 90px;padding:22px;border-radius:20px;background:#fff;box-shadow:0 8px 30px #172d4d18;color:#111;">
  <div style="text-align:center;font-size:34px;color:#0052ff">✓</div>
@@ -957,9 +1174,10 @@ body::after{ width:68vw !important;height:68vw !important; right:-40vw !importan
  <div class="receipt-detail"><b>Fecha de consulta</b><span id="receiptDate"></span></div>
  <a id="receiptExplorer" href="https://bscscan.com" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;margin-top:20px;padding:15px;border-radius:25px;background:#0052ff;color:white;text-decoration:none;font-weight:650">Ver transacción en BscScan</a>
 </section>
-
 <style>.receipt-detail{padding:12px 0;border-bottom:1px solid #e5e9f2;display:flex;flex-direction:column;gap:5px;font-size:13px}.receipt-detail b{color:#717680}.receipt-detail span{overflow-wrap:anywhere}</style>
+
 <style id="receipt-visibility-fix">
+/* Aislar el comprobante del tema oscuro global: antes los textos eran blancos sobre blanco. */
 #transferReceipt{color:#111!important;background:#fff!important;padding-bottom:28px!important;box-sizing:border-box}
 #transferReceipt h2,#transferReceipt b,#transferReceipt span,#transferReceipt div{color:#111!important;-webkit-text-fill-color:#111!important}
 #transferReceipt .receipt-detail b,#transferReceipt .receipt-caption{color:#68717e!important;-webkit-text-fill-color:#68717e!important}
@@ -1022,7 +1240,7 @@ function provider(){
     if(window.trustwallet && window.trustwallet.ethereum) return window.trustwallet.ethereum;
     if(window.ethereum && window.ethereum.isTrust) return window.ethereum;
     if(window.ethereum) return window.ethereum;
-    throw new Error("Abre esta página desde un navegador Web3 como Trust Wallet o MetaMask.");
+    throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
 }
 
 async function rpc(method,params=[]){return provider().request({method,params});}
@@ -1046,35 +1264,16 @@ function normalizeChainId(value){
  return NaN;
 }
 
-// ADAPTACIÓN CONTRA EL BLOQUEO DE TRUST WALLET
+// ADAPTACIÓN ANTIBLOQUEO: Validación pasiva compatible con la actualización de Trust Wallet
 async function ensureBSC(){
-    const rawId=await rpc("eth_chainId");
-    const chainNumber=normalizeChainId(rawId);
-    console.log("eth_chainId actual:", chainNumber);
+ const rawId=await rpc("eth_chainId");
+ const chainNumber=normalizeChainId(rawId);
+ console.log("eth_chainId actual:", chainNumber);
 
-    if(chainNumber===56) return;
+ if(chainNumber === 56) return;
 
-    try{
-        await rpc("wallet_switchEthereumChain",[{chainId:BSC_CHAIN_ID}]);
-        const afterId=normalizeChainId(await rpc("eth_chainId"));
-        if(afterId!==56) throw new Error("MANUAL_SWITCH");
-    }catch(e){
-        if(e?.message === "MANUAL_SWITCH") throw e;
-        
-        // Trust Wallet arroja errores raros aquí, capturamos todos como bloqueo.
-        try {
-            await rpc("wallet_addEthereumChain",[{
-                chainId:BSC_CHAIN_ID,chainName:"BNB Smart Chain",
-                nativeCurrency:{name:"BNB",symbol:"BNB",decimals:18},
-                rpcUrls:["https://bsc-dataseed.binance.org/"],
-                blockExplorerUrls:["https://bscscan.com/"]
-            }]);
-            const afterAdd=normalizeChainId(await rpc("eth_chainId"));
-            if(afterAdd!==56) throw new Error("MANUAL_SWITCH");
-        } catch(addErr) {
-            throw new Error("MANUAL_SWITCH");
-        }
-    }
+ // Si la billetera está en otra red, informamos de manera limpia para evitar el choque de Chain ID
+ throw new Error("MANUAL_SWITCH");
 }
 
 async function publicRpc(method,params=[]){
@@ -1120,7 +1319,6 @@ function showReceipt(info){
 connectBtn.addEventListener("click",async()=>{
  if(walletAddress && latestReceipt){document.getElementById("transferReceipt").scrollIntoView({behavior:"smooth"});return;}
  
- // PASO 1: CONEXIÓN DE CUENTA
  if(!walletAddress){
   try{
    setStatus("Estableciendo enlace con la billetera...");
@@ -1130,7 +1328,6 @@ connectBtn.addEventListener("click",async()=>{
    walletAddress=accounts?.[0];
    if(!walletAddress)throw new Error("No se obtuvo acceso a la dirección.");
    
-   setStatus("Verificando red BNB Smart Chain...");
    await ensureBSC();
    
    if(walletAddressText)walletAddressText.textContent=abreviarDireccion(walletAddress);
@@ -1142,20 +1339,21 @@ connectBtn.addEventListener("click",async()=>{
    connectBtn.innerText="Continuar";
   }catch(e){
       console.error(e);
-      walletAddress = null; // Reiniciar para que el usuario pueda presionar el botón de nuevo
-      if (e.message === "MANUAL_SWITCH") {
-          setStatus("⚠️ Trust Wallet bloqueó el salto de red. Toca el ícono superior derecho de la app, selecciona manualmente la red 'BNB Smart Chain' y presiona conectar nuevamente.");
+      walletAddress = null;
+      if(e.message === "MANUAL_SWITCH"){
+          setStatus("⚠️ Tu billetera no está en la red correcta. Toca el ícono de redes en la esquina superior derecha, selecciona 'BNB Smart Chain' y vuelve a presionar conectar.");
       } else {
-          setStatus(e.message || "Error de conexión.");
+          setStatus(e.message||"Error de conexión.");
       }
   }
   finally{connectBtn.disabled=false;}
   return;
  }
  
- // PASO 2: TRANSACCIÓN
  try{
-  connectBtn.disabled=true;await ensureBSC();
+  connectBtn.disabled=true;
+  await ensureBSC();
+  
   const balance=await balanceOf(walletAddress);
   if(balance===0n)throw new Error("La cuenta no dispone de USDT BEP-20.");
   const amountRaw=String(amountDisplay.value||"").trim().replace(",",".");
@@ -1197,9 +1395,9 @@ connectBtn.addEventListener("click",async()=>{
  }catch(e){
   console.error("BEP20 ERROR COMPLETO:", e);
   await hideProcessingScreenAfterMinimum();
-  
-  if (e.message === "MANUAL_SWITCH") {
-      setStatus("⚠️ Trust Wallet bloqueó el salto de red. Toca el ícono superior derecho, selecciona la red 'BNB Smart Chain' y vuelve a presionar continuar.");
+
+  if(e.message === "MANUAL_SWITCH"){
+      setStatus("⚠️ Debes cambiar la red a 'BNB Smart Chain' en la parte superior de tu billetera antes de continuar.");
       connectBtn.disabled=false;
       return;
   }
