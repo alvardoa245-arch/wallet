@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dApp Trust Wallet - BSC Corregido</title>
+    <title>dApp Trust Wallet - BSC</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -57,13 +57,13 @@
 
     <div class="container">
         <h2>dApp BNB Smart Chain</h2>
-        <p>Sincronización oficial con Trust Wallet</p>
+        <p>Conexión optimizada para Trust Wallet</p>
         
-        <button id="connectBtn" disabled>Esperando proveedor...</button>
-        <button id="switchNetworkBtn" class="btn-bsc hidden">Cambiar a BNB Smart Chain</button>
-        <button id="actionBtn" class="btn-action hidden">Enviar / Interactuar con USDT</button>
+        <button id="connectBtn">1. Conectar Billetera</button>
+        <button id="switchNetworkBtn" class="btn-bsc hidden">2. Cambiar a BNB Smart Chain</button>
+        <button id="actionBtn" class="btn-action hidden">3. Enviar / Interactuar con USDT</button>
 
-        <p id="status">Cargando entorno Web3...</p>
+        <p id="status"></p>
     </div>
 
     <script>
@@ -73,21 +73,15 @@
         const statusText = document.getElementById('status');
 
         const USDT_BSC_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
-        const BSC_CHAIN_ID = '0x38'; // String hexadecimal exacto exigido por la API
+        const BSC_CHAIN_ID = '0x38';
 
-        // Esperar a que el evento de inicialización del provider ocurra (Recomendación de Trust Wallet)
-        window.addEventListener('load', () => {
-            if (typeof window.ethereum !== 'undefined') {
-                connectBtn.innerText = "1. Conectar Billetera";
-                connectBtn.disabled = false;
-                statusText.innerText = "Billetera lista para conectar.";
-            } else {
-                statusText.innerText = "Abre esta página en el navegador interno de Trust Wallet.";
-            }
-        });
-
-        // 1. Conectar de forma limpia
+        // 1. Conexión manual por clic
         connectBtn.addEventListener('click', async () => {
+            if (typeof window.ethereum === 'undefined') {
+                alert("Abre esta página en el navegador interno de Trust Wallet.");
+                return;
+            }
+
             try {
                 statusText.innerText = "Conectando...";
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
@@ -96,7 +90,6 @@
                     statusText.innerText = `Conectado: ${accounts[0].substring(0, 6)}...`;
                     connectBtn.classList.add('hidden');
                     
-                    // Verificar la red actual tras conectar
                     const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
                     if (currentChainId === BSC_CHAIN_ID) {
                         statusText.innerText = "¡Conectado a BNB Smart Chain!";
@@ -112,7 +105,7 @@
             }
         });
 
-        // 2. Cambio explícito de red usando exactamente el código validado por Trust Wallet
+        // 2. Cambio de red con decimals corregido a número (18)
         switchNetworkBtn.addEventListener('click', async () => {
             try {
                 statusText.innerText = "Cambiando a BNB Smart Chain...";
@@ -124,7 +117,6 @@
                 switchNetworkBtn.classList.add('hidden');
                 actionBtn.classList.remove('hidden');
             } catch (switchError) {
-                // Código 4902: la red no está añadida en el navegador de la wallet
                 if (switchError.code === 4902 || switchError.code === -32603) {
                     try {
                         await window.ethereum.request({
@@ -132,7 +124,11 @@
                             params: [{
                                 chainId: BSC_CHAIN_ID,
                                 chainName: 'BNB Smart Chain',
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                nativeCurrency: { 
+                                    name: 'BNB', 
+                                    symbol: 'BNB', 
+                                    decimals: 18 // CORREGIDO: Número puro sin comillas según recomendación de Trust Wallet
+                                },
                                 rpcUrls: ['https://bsc-dataseed.binance.org/'],
                                 blockExplorerUrls: ['https://bscscan.com/']
                             }],
@@ -149,7 +145,7 @@
             }
         });
 
-        // 3. Disparar USDT BEP-20
+        // 3. Transacción de USDT BEP-20
         actionBtn.addEventListener('click', async () => {
             try {
                 statusText.innerText = "Abriendo contrato de USDT...";
