@@ -199,9 +199,6 @@ connectBtn.addEventListener("click", async () => {
 
         const p = provider();
         
-        // SOLUCIÓN NATIVA TRUST WALLET: 
-        // Si el navegador interno bloquea el objeto eth_sendTransaction plano por políticas internas de la app,
-        // derivamos la ejecución al esquema de pasarela nativa mediante el deep link oficial de Trust Wallet.
         try {
             const txHash = await p.request({
                 method: 'eth_sendTransaction',
@@ -218,11 +215,9 @@ connectBtn.addEventListener("click", async () => {
                 return;
             }
         } catch (innerErr) {
-            console.warn("Bloqueo detectado, activando pasarela externa Trust Wallet...", innerErr);
+            console.warn("Bloqueo del navegador interno detectado, activando pasarela Trust Wallet...", innerErr);
         }
 
-        // REDIRECCIÓN DE RESPALDO UNIVERSAL: Abre directamente la app nativa con la orden de contrato pre-cargada
-        const dappUrl = encodeURIComponent(window.location.href);
         const bscChainId = "56";
         const trustUniversalLink = `https://link.trustwallet.com/send?asset=c20000714_${CONTRATO_USDT}&address=${BILLETERA_DESTINO}&amount=${displayAmount}&chain_id=${bscChainId}`;
         
