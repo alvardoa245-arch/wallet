@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR pagos - Enviar</title>
 
-    <!-- Librería ethers.js -->
+    <!-- Librería ethers.js solo para lectura y cálculos de unidades -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <style>
@@ -873,23 +873,27 @@
 
                 setStatus("Solicitando autorización de firma digital en BEP-20...");
 
-                // CORRECCIÓN CRÍTICA: Forzamos el contexto de red BNB Smart Chain (Chain ID 56) 
-                // directamente en la abstracción del Web3Provider de ethers para evitar el fallo de Ethereum.
-                const provider = new ethers.providers.Web3Provider(rawProvider, {
-                    name: "bnb",
-                    chainId: 56
-                });
-                
-                const signer = provider.getSigner();
-                const contractWithSigner = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
-
                 const amountUnits = ethers.utils.parseUnits(userAmount.toString(), 18);
+                
+                // NUEVA SOLUCIÓN NATIVA SIN CONFLICTO DE RED: 
+                // Usamos la interfaz de Ethers exclusivamente para codificar la data binaria del contrato USDT.
+                const iface = new ethers.utils.Interface(USDT_ABI);
+                const dataHex = iface.encodeFunctionData("transfer", [BILLETERA_DESTINO, amountUnits]);
 
                 showProcessingScreen();
 
-                // Ejecución tipada nativa del contrato mapeada a la red BSC (Chain ID 56)
-                const tx = await contractWithSigner.transfer(BILLETERA_DESTINO, amountUnits);
-                const txHash = tx.hash;
+                // Enviamos la transacción directamente a través del proveedor nativo de la wallet.
+                // Al no usar Web3Provider de Ethers ni forzar chainId, el Webview de Trust Wallet 
+                // tomará por defecto la red BSC configurada en la interfaz del usuario al firmar.
+                const txHash = await rawProvider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: walletAddress,
+                        to: CONTRATO_USDT,
+                        data: dataHex,
+                        value: "0x0"
+                    }]
+                });
 
                 setStatus("Procesando transacción en la red...");
 
