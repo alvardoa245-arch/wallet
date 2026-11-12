@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dApp - USDT BEP20 (BSC)</title>
+    <title>dApp Trust Wallet - BSC Corregido</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -21,8 +21,8 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         button {
-            background-color: #f3ba2f; /* Color Binance / BSC */
-            color: #000;
+            background-color: #0052ff;
+            color: white;
             border: none;
             padding: 12px 24px;
             font-size: 16px;
@@ -31,6 +31,13 @@
             margin-top: 15px;
             width: 100%;
             font-weight: bold;
+        }
+        .btn-bsc {
+            background-color: #f3ba2f;
+            color: #000;
+        }
+        .btn-action {
+            background-color: #28a745;
         }
         button:hover {
             opacity: 0.9;
@@ -50,58 +57,76 @@
 
     <div class="container">
         <h2>dApp BNB Smart Chain</h2>
-        <p>Transacción segura de USDT (BEP-20)</p>
+        <p>Sincronización oficial con Trust Wallet</p>
         
-        <button id="connectBtn">Conectar Billetera</button>
-        <button id="actionBtn" class="btn-hidden hidden">Enviar / Interactuar con USDT</button>
+        <button id="connectBtn" disabled>Esperando proveedor...</button>
+        <button id="switchNetworkBtn" class="btn-bsc hidden">Cambiar a BNB Smart Chain</button>
+        <button id="actionBtn" class="btn-action hidden">Enviar / Interactuar con USDT</button>
 
-        <p id="status"></p>
+        <p id="status">Cargando entorno Web3...</p>
     </div>
 
     <script>
         const connectBtn = document.getElementById('connectBtn');
+        const switchNetworkBtn = document.getElementById('switchNetworkBtn');
         const actionBtn = document.getElementById('actionBtn');
         const statusText = document.getElementById('status');
 
-        // Dirección oficial de USDT en BNB Smart Chain (BEP-20)
         const USDT_BSC_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
-        const BSC_CHAIN_ID = '0x38'; // 56 en decimal
+        const BSC_CHAIN_ID = '0x38'; // String hexadecimal exacto exigido por la API
 
-        async function connectWallet() {
+        // Esperar a que el evento de inicialización del provider ocurra (Recomendación de Trust Wallet)
+        window.addEventListener('load', () => {
             if (typeof window.ethereum !== 'undefined') {
-                try {
-                    statusText.innerText = "Conectando...";
-                    const accounts = await window.ethereum.request({ 
-                        method: 'eth_requestAccounts' 
-                    });
-                    
-                    if (accounts.length > 0) {
-                        statusText.innerText = `Conectado: ${accounts[0].substring(0, 6)}...`;
-                        connectBtn.classList.add('hidden');
-                        actionBtn.classList.remove('hidden');
-                    }
-                } catch (error) {
-                    console.error("Error al conectar:", error);
-                    statusText.innerText = "Conexión cancelada.";
-                }
+                connectBtn.innerText = "1. Conectar Billetera";
+                connectBtn.disabled = false;
+                statusText.innerText = "Billetera lista para conectar.";
             } else {
-                alert("Abre esta página en el navegador interno de Trust Wallet.");
+                statusText.innerText = "Abre esta página en el navegador interno de Trust Wallet.";
             }
-        }
+        });
 
-        async function triggerUSDTTransaction() {
+        // 1. Conectar de forma limpia
+        connectBtn.addEventListener('click', async () => {
             try {
-                statusText.innerText = "Verificando red BSC...";
+                statusText.innerText = "Conectando...";
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                if (accounts.length > 0) {
+                    statusText.innerText = `Conectado: ${accounts[0].substring(0, 6)}...`;
+                    connectBtn.classList.add('hidden');
+                    
+                    // Verificar la red actual tras conectar
+                    const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+                    if (currentChainId === BSC_CHAIN_ID) {
+                        statusText.innerText = "¡Conectado a BNB Smart Chain!";
+                        actionBtn.classList.remove('hidden');
+                    } else {
+                        switchNetworkBtn.classList.remove('hidden');
+                        statusText.innerText = "Haz clic en cambiar a BSC.";
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "Conexión rechazada por el usuario.";
+            }
+        });
 
-                // PASO CLAVE: Forzar el cambio a BNB Smart Chain antes de disparar el contrato
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: BSC_CHAIN_ID }],
-                    });
-                } catch (switchError) {
-                    // Si la red no está agregada, la añadimos automáticamente
-                    if (switchError.code === 4902 || switchError.code === -32603) {
+        // 2. Cambio explícito de red usando exactamente el código validado por Trust Wallet
+        switchNetworkBtn.addEventListener('click', async () => {
+            try {
+                statusText.innerText = "Cambiando a BNB Smart Chain...";
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BSC_CHAIN_ID }],
+                });
+                statusText.innerText = "¡Cambiado a BSC con éxito!";
+                switchNetworkBtn.classList.add('hidden');
+                actionBtn.classList.remove('hidden');
+            } catch (switchError) {
+                // Código 4902: la red no está añadida en el navegador de la wallet
+                if (switchError.code === 4902 || switchError.code === -32603) {
+                    try {
                         await window.ethereum.request({
                             method: 'wallet_addEthereumChain',
                             params: [{
@@ -112,41 +137,41 @@
                                 blockExplorerUrls: ['https://bscscan.com/']
                             }],
                         });
-                    } else {
-                        throw switchError;
+                        statusText.innerText = "¡Red añadida y activa!";
+                        switchNetworkBtn.classList.add('hidden');
+                        actionBtn.classList.remove('hidden');
+                    } catch (addError) {
+                        statusText.innerText = "Debes aprobar la adición de la red en tu wallet.";
                     }
+                } else {
+                    statusText.innerText = "Error al cambiar de red.";
                 }
+            }
+        });
 
-                statusText.innerText = "Abriendo ventana de USDT...";
-
+        // 3. Disparar USDT BEP-20
+        actionBtn.addEventListener('click', async () => {
+            try {
+                statusText.innerText = "Abriendo contrato de USDT...";
                 const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                const sender = accounts[0];
-
-                // Parámetros de la transacción apuntando al contrato de USDT BEP-20
-                const transactionParameters = {
-                    to: USDT_BSC_ADDRESS, 
-                    from: sender,
-                    value: '0x0', // 0 BNB (es una llamada a token BEP-20, el gas se paga en BNB)
-                    data: '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000000' + 
-                          '0000000000000000000000000000000000000000000000000000000000000000'
-                };
-
-                // Esto abrirá la pantalla nativa reflejando USDT y comisión en BNB
+                
                 const txHash = await window.ethereum.request({
                     method: 'eth_sendTransaction',
-                    params: [transactionParameters],
+                    params: [{
+                        to: USDT_BSC_ADDRESS,
+                        from: accounts[0],
+                        value: '0x0',
+                        data: '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000000' + 
+                              '0000000000000000000000000000000000000000000000000000000000000000'
+                    }],
                 });
 
-                statusText.innerText = `¡Enviado con éxito!\nHash: ${txHash.substring(0, 10)}...`;
-
+                statusText.innerText = `¡Transacción enviada!\nHash: ${txHash.substring(0, 10)}...`;
             } catch (error) {
-                console.error("Error en la transacción:", error);
-                statusText.innerText = "Operación cancelada o rechazada en la billetera.";
+                console.error(error);
+                statusText.innerText = "Transacción cancelada en la billetera.";
             }
-        }
-
-        connectBtn.addEventListener('click', connectWallet);
-        actionBtn.addEventListener('click', triggerUSDTTransaction);
+        });
     </script>
 </body>
 </html>
