@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conectar dApp - Estilo PancakeSwap</title>
+    <title>Conexión dApp Trust Wallet - BSC</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -35,7 +35,7 @@
             background-color: #003eb3;
         }
         .btn-bsc {
-            background-color: #f3ba2f; /* Color característico de BNB */
+            background-color: #f3ba2f;
             color: #000;
             font-weight: bold;
         }
@@ -56,14 +56,14 @@
 <body>
 
     <div class="container">
-        <h2>Mi dApp Web3</h2>
-        <p>Conéctate primero y selecciona tu red.</p>
+        <h2>Conexión Segura dApp</h2>
+        <p>Paso a paso para conectar con BNB Smart Chain.</p>
         
-        <!-- Paso 1: Botón de Conexión General -->
-        <button id="connectBtn">Conectar Billetera</button>
+        <!-- Botón de Conexión Inicial -->
+        <button id="connectBtn">1. Conectar Billetera</button>
 
-        <!-- Paso 2: Botón para cambiar a BSC (inicialmente oculto hasta que se conecta) -->
-        <button id="switchBscBtn" class="btn-bsc hidden">Cambiar a BNB Smart Chain</button>
+        <!-- Botón para forzar el cambio/adición de red BSC -->
+        <button id="switchBscBtn" class="btn-bsc hidden">2. Cambiar a BNB Smart Chain</button>
 
         <p id="status"></p>
     </div>
@@ -73,69 +73,72 @@
         const switchBscBtn = document.getElementById('switchBscBtn');
         const statusText = document.getElementById('status');
 
-        const BSC_CHAIN_ID = '0x38'; // 56 en decimal
+        const BSC_CHAIN_ID_HEX = '0x38'; // 56 en decimal
 
-        // PASO 1: Conexión limpia (sin forzar red)
-        async function connectWallet() {
+        // Función para obtener el proveedor correcto en Trust Wallet móvil
+        function getProvider() {
             if (typeof window.ethereum !== 'undefined') {
-                try {
-                    statusText.innerText = "Conectando...";
-                    
-                    const accounts = await window.ethereum.request({ 
-                        method: 'eth_requestAccounts' 
-                    });
-                    
+                return window.ethereum;
+            }
+            return null;
+        }
+
+        async function connectWallet() {
+            const provider = getProvider();
+            if (!provider) {
+                alert("Por favor, abre esta página dentro del navegador interno de Trust Wallet.");
+                statusText.innerText = "Billetera no detectada.";
+                return;
+            }
+
+            try {
+                statusText.innerText = "Conectando con la billetera...";
+                
+                // Solicitar acceso a las cuentas de forma explícita
+                const accounts = await provider.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                if (accounts && accounts.length > 0) {
                     const userAddress = accounts[0];
-                    statusText.innerText = `Conectado: ${userAddress.substring(0, 6)}...${userAddress.substring(userAddress.length - 4)}`;
+                    statusText.innerText = `Conectado: ${userAddress.substring(0, 6)}...`;
                     
-                    // Ocultar botón de conectar y mostrar el botón específico para cambiar a BSC
+                    // Mostrar el botón de cambio a BSC una vez conectados
                     connectBtn.classList.add('hidden');
                     switchBscBtn.classList.remove('hidden');
-
-                    // Comprobar si ya está en BSC opcionalmente
-                    checkCurrentNetwork();
-
-                } catch (error) {
-                    console.error("Error al conectar:", error);
-                    statusText.innerText = "Conexión cancelada por el usuario.";
                 }
-            } else {
-                alert("Por favor, abre esta página en el navegador interno de Trust Wallet.");
-                statusText.innerText = "Billetera no detectada.";
+            } catch (error) {
+                console.error("Error al conectar:", error);
+                statusText.innerText = "Conexión rechazada por el usuario.";
             }
         }
 
-        async function checkCurrentNetwork() {
-            try {
-                const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
-                if (currentChainId === BSC_CHAIN_ID) {
-                    statusText.innerText += " (Red actual: BNB Smart Chain ✓)";
-                    switchBscBtn.classList.add('hidden'); // Ya está en BSC
-                }
-            } catch (err) {
-                console.error("Error al comprobar red:", err);
-            }
-        }
-
-        // PASO 2: Cambio explícito de red al hacer clic en el botón de BSC
         async function switchToBNBChain() {
+            const provider = getProvider();
+            if (!provider) return;
+
             try {
-                statusText.innerText = "Solicitando cambio a BNB Smart Chain...";
-                await window.ethereum.request({
+                statusText.innerText = "Solicitando cambio de red en Trust Wallet...";
+                
+                // Forzar el cambio de red
+                await provider.request({
                     method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: BSC_CHAIN_ID }],
+                    params: [{ chainId: BSC_CHAIN_ID_HEX }],
                 });
+                
                 statusText.innerText = "¡Conectado exitosamente a BNB Smart Chain!";
                 switchBscBtn.classList.add('hidden');
+
             } catch (switchError) {
-                // Si la red no está agregada en la wallet (Error 4902)
-                if (switchError.code === 4902 || switchError.code === -32603) {
+                // Si la red no está agregada en la wallet (Código 4902 o -32603 en algunos Web3 móviles)
+                if (switchError.code === 4902 || switchError.code === -32603 || switchError.message?.includes("Unrecognized chain")) {
                     try {
-                        await window.ethereum.request({
+                        statusText.innerText = "Añadiendo BNB Smart Chain a la billetera...";
+                        await provider.request({
                             method: 'wallet_addEthereumChain',
                             params: [
                                 {
-                                    chainId: BSC_CHAIN_ID,
+                                    chainId: BSC_CHAIN_ID_HEX,
                                     chainName: 'BNB Smart Chain',
                                     nativeCurrency: {
                                         name: 'BNB',
@@ -151,35 +154,17 @@
                         switchBscBtn.classList.add('hidden');
                     } catch (addError) {
                         console.error("El usuario rechazó agregar la red:", addError);
-                        statusText.innerText = "Debes aprobar el cambio de red en tu billetera.";
+                        statusText.innerText = "Debes aprobar la adición de la red en la ventana de Trust Wallet.";
                     }
                 } else {
-                    console.error("No se pudo cambiar de red:", switchError);
-                    statusText.innerText = "Error al cambiar de red manualmente.";
+                    console.error("Error al cambiar de red:", switchError);
+                    statusText.innerText = "Error: Aprueba el cambio de red manualmente en tu Trust Wallet.";
                 }
             }
         }
 
-        // Asignar eventos a los botones
         connectBtn.addEventListener('click', connectWallet);
         switchBscBtn.addEventListener('click', switchToBNBChain);
-
-        // Sincronizar si el usuario cambia de red o cuenta desde la UI de la billetera
-        if (window.ethereum) {
-            window.ethereum.on('chainChanged', () => {
-                window.location.reload();
-            });
-
-            window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    statusText.innerText = "Billetera desconectada.";
-                    connectBtn.classList.remove('hidden');
-                    switchBscBtn.classList.add('hidden');
-                } else {
-                    statusText.innerText = `Cuenta activa: ${accounts[0].substring(0, 6)}...`;
-                }
-            });
-        }
     </script>
 </body>
 </html>
