@@ -45,16 +45,29 @@
         .hidden {
             display: none;
         }
+        .instruction-box {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>Conexión dApp</h2>
-        <p>Configuración optimizada para Trust Wallet.</p>
+        <p>Conecta tu billetera para operar en BNB Smart Chain.</p>
         
         <button id="connectBtn">1. Conectar Billetera</button>
-        <button id="switchBscBtn" class="btn-bsc hidden">2. Activar BNB Smart Chain</button>
+        <button id="switchBscBtn" class="btn-bsc hidden">2. Verificar Red BSC</button>
+
+        <div id="bscInstructions" class="instruction-box hidden">
+            ⚠️ <b>Aviso de red:</b> Si la billetera no cambia automáticamente, toca el selector de red en la esquina superior de tu Trust Wallet y elige <b>BNB Smart Chain</b> manualmente.
+        </div>
 
         <p id="status"></p>
     </div>
@@ -62,23 +75,19 @@
     <script>
         const connectBtn = document.getElementById('connectBtn');
         const switchBscBtn = document.getElementById('switchBscBtn');
+        const bscInstructions = document.getElementById('bscInstructions');
         const statusText = document.getElementById('status');
 
-        // Detectar el proveedor específico de Trust Wallet o el genérico inyectado
         function getProvider() {
-            if (typeof window.trustwallet !== 'undefined') {
-                return window.trustwallet;
-            }
-            if (typeof window.ethereum !== 'undefined') {
-                return window.ethereum;
-            }
+            if (typeof window.trustwallet !== 'undefined') return window.trustwallet;
+            if (typeof window.ethereum !== 'undefined') return window.ethereum;
             return null;
         }
 
         async function connectWallet() {
             const provider = getProvider();
             if (!provider) {
-                alert("Por favor, abre esta página dentro del navegador de Trust Wallet.");
+                alert("Abre esta página en el navegador interno de Trust Wallet.");
                 return;
             }
 
@@ -90,6 +99,7 @@
                     statusText.innerText = `Conectado: ${accounts[0].substring(0, 6)}...`;
                     connectBtn.classList.add('hidden');
                     switchBscBtn.classList.remove('hidden');
+                    bscInstructions.classList.remove('hidden');
                 }
             } catch (err) {
                 console.error(err);
@@ -101,18 +111,18 @@
             const provider = getProvider();
             if (!provider) return;
 
-            statusText.innerText = "Cambiando red...";
+            statusText.innerText = "Verificando red...";
 
             try {
-                // Intento 1: Cambiar directamente a BSC si ya está añadida en la wallet
+                // Intentar cambio mediante código estándar
                 await provider.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: '0x38' }],
                 });
-                statusText.innerText = "¡BNB Smart Chain activada!";
+                statusText.innerText = "¡BNB Smart Chain activa!";
+                bscInstructions.classList.add('hidden');
                 switchBscBtn.classList.add('hidden');
             } catch (switchError) {
-                // Si la red no existe en la wallet, procedemos a agregarla
                 try {
                     await provider.request({
                         method: 'wallet_addEthereumChain',
@@ -124,11 +134,13 @@
                             blockExplorerUrls: ['https://bscscan.com/']
                         }]
                     });
-                    statusText.innerText = "¡BNB Smart Chain agregada con éxito!";
+                    statusText.innerText = "¡BNB Smart Chain configurada!";
+                    bscInstructions.classList.add('hidden');
                     switchBscBtn.classList.add('hidden');
                 } catch (addError) {
-                    console.error("Error al añadir red:", addError);
-                    statusText.innerText = "Acción cancelada en la billetera.";
+                    // Si el sistema móvil bloquea la ventana emergente por restricciones del navegador, 
+                    // guiamos al usuario con el cuadro amarillo de instrucciones manuales.
+                    statusText.innerText = "Selecciona BSC manualmente en tu billetera.";
                 }
             }
         }
