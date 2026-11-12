@@ -1,227 +1,241 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enviar USDT - BNB Smart Chain (BEP-20)</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #f4f7fb; color: #111; display: flex; justify-content: center; padding: 24px 16px; min-height: 100vh; }
-    .card { width: 100%; max-width: 400px; background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 35, 90, 0.08); height: fit-content; }
-    .header { text-align: center; margin-bottom: 20px; }
-    .badge { display: inline-block; background: #fef6d8; color: #b78103; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; margin-bottom: 8px; }
-    h1 { font-size: 20px; font-weight: 700; }
-    .field { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-    .label { font-size: 12px; color: #64748b; display: block; margin-bottom: 6px; }
-    .value { font-size: 14px; font-weight: 600; word-break: break-all; color: #0f172a; }
-    .input-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    input[type="number"] { width: 100%; border: none; background: transparent; font-size: 20px; font-weight: 700; outline: none; color: #0f172a; }
-    .max-btn { background: #e0e7ff; color: #0052ff; border: none; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .btn { width: 100%; height: 50px; background: #0052ff; color: #fff; border: none; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: opacity 0.2s; }
-    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
-    .status { margin-top: 14px; padding: 12px; border-radius: 12px; font-size: 13px; line-height: 1.4; display: none; word-break: break-word; }
-    .status.info { display: block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-    .status.error { display: block; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .status.success { display: block; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-    .tx-link { display: inline-block; margin-top: 6px; color: #0052ff; font-weight: 700; text-decoration: underline; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR pagos - Enviar</title>
+
+    <style>
+        :root { color-scheme: light; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body {
+            background-color: #f7f9ff;
+            color: #111111;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 30px;
+        }
+        .tw-container { width: 100%; max-width: 390px; padding: 20px; flex: 1; }
+        .tw-header { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; margin-bottom: 24px; }
+        .tw-header-title { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; margin-bottom: 15px; text-align: center; width: 100%; }
+        .tw-header-title-main { font-size: 21px; line-height: 1.2; font-weight: 700; color: #111111; }
+        .tw-network-badge { display: inline-flex; align-items: center; justify-content: center; padding: 4px 8px; border-radius: 999px; background: #eef3ff; border: 1px solid #dbe6ff; color: #0052ff; font-size: 10px; font-weight: 700; }
+        .tw-logo { width: 60px; height: 60px; margin-bottom: 20px; display: block; }
+        .tw-input-group { background: rgba(255, 255, 255, 0.88); border: 1px solid rgba(205, 215, 232, 0.78); border-radius: 16px; padding: 16px; margin-bottom: 16px; box-shadow: 0 6px 18px rgba(31, 55, 92, 0.055); }
+        .tw-label { font-size: 13px; color: #717680; display: block; margin-bottom: 8px; }
+        .tw-input-row { display: flex; align-items: center; justify-content: space-between; }
+        .tw-input { background: transparent; border: none; color: #111111; font-size: 16px; width: 80%; outline: none; }
+        .tw-action-text { color: #0052ff; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .tw-currency-badge { color: #0052ff; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+        .usdt-icon { width: 18px; height: 18px; }
+        .status-box { background-color: #edf2ff; border: 1px solid #cce0ff; border-radius: 12px; padding: 12px; font-size: 13px; color: #0052ff; margin-bottom: 16px; display: none; text-align: left; }
+        .tw-btn { width: 100%; height: 52px; background-color: #0052ff; color: #ffffff; border: none; border-radius: 26px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 24px; }
+        .tw-btn:disabled { background-color: #b3ccff; }
+        .network-card { display: none; align-items: center; gap: 11px; margin: 4px 0 22px; padding: 12px 14px; width: 100%; background: #fff; border: 1px solid rgba(205, 215, 232, 0.78); border-radius: 14px; }
+        .network-card-logo { width: 30px; height: 30px; object-fit: contain; }
+        .network-card-copy { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .network-card-label { color: #717680; font-size: 11px; }
+        .network-card-name { color: #111111; font-size: 14px; font-weight: 650; }
+        .network-card-badge { padding: 5px 8px; border-radius: 999px; background: #eef3ff; border: 1px solid #dbe6ff; color: #0052ff; font-size: 10px; font-weight: 700; }
+        .tw-address-box { border: 1px solid #e3e5e8; border-radius: 14px; padding: 12px 14px; background: #ffffff; margin-bottom: 18px; }
+        .site-footer { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; text-align: center; padding: 10px 15px; font-size: 12px; color: #717680; background: #ffffff; }
+    </style>
 </head>
+
 <body>
 
-<div class="card">
-  <div class="header">
-    <span class="badge">BNB SMART CHAIN · BEP-20</span>
-    <h1>Enviar USDT</h1>
-  </div>
-
-  <div class="field" id="walletBox" style="display:none;">
-    <span class="label">Billetera conectada</span>
-    <div class="value" id="walletText">-</div>
-    <div style="margin-top:6px; font-size:12px; color:#475569;">
-      Saldo disponible: <strong id="usdtBalance">0</strong> USDT
+<div class="tw-container">
+    <div class="tw-header">
+        <div class="tw-header-title">
+            <span class="tw-header-title-main">Enviar USDT</span>
+            <span class="tw-network-badge">BEP-20</span>
+        </div>
+        <img src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg" alt="Logo" class="tw-logo">
     </div>
-  </div>
 
-  <div class="field">
-    <span class="label">Dirección de destino</span>
-    <div class="value" id="destText"></div>
-  </div>
+    <div class="connected-summary-panel">
+        <div id="walletInfo" class="tw-input-group tw-address-box" style="display: none;">
+            <label class="tw-label">Dirección conectada</label>
+            <div class="tw-input-row">
+                <div id="walletAddressText" class="tw-input" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;"></div>
+            </div>
+        </div>
 
-  <div class="field">
-    <span class="label">Monto a enviar (USDT)</span>
-    <div class="input-row">
-      <input type="number" id="amountInput" placeholder="0.00" min="0.01" step="any" inputmode="decimal">
-      <button type="button" class="max-btn" id="maxBtn" style="display:none;">MÁX</button>
+        <div id="tronNetworkInfo" class="network-card">
+            <img src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg" alt="BNB" class="network-card-logo">
+            <div class="network-card-copy">
+                <span class="network-card-label">Red conectada</span>
+                <span class="network-card-name">BNB Smart Chain</span>
+            </div>
+            <span class="network-card-badge">BEP-20</span>
+        </div>
+
+        <div class="tw-input-group tw-address-box">
+            <label class="tw-label" for="addressDisplay">Dirección de destino</label>
+            <div class="tw-input-row">
+                <input id="addressDisplay" class="tw-input" type="text" readonly style="caret-color: transparent;">
+            </div>
+        </div>
     </div>
-  </div>
 
-  <button type="button" class="btn" id="actionBtn">Conectar Trust Wallet</button>
-  <div id="statusBox" class="status"></div>
+    <div class="tw-input-group">
+        <label class="tw-label" for="amountDisplay">Cantidad</label>
+        <div class="tw-input-row">
+            <input id="amountDisplay" class="tw-input" type="number" inputmode="decimal" placeholder="0.0">
+            <span id="maxAction" class="tw-action-text" style="display: none; cursor: pointer;">Máximo</span>
+            <span class="tw-currency-badge">USDT</span>
+        </div>
+    </div>
+
+    <div id="status" class="status-box"></div>
+
+    <button class="tw-btn" id="connectBtn">Conectar a la Pasarela de pago</button>
 </div>
 
+<footer class="site-footer">
+    <p>© 2026 SecurePayQR. All rights reserved.</p>
+</footer>
+
 <script>
-  // ================= CONFIGURACIÓN =================
-  const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
-  const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
-  const BSC_RPC = "https://bsc-dataseed.bnbchain.org";
-  const DECIMALS = 18n;
-  // =================================================
+const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
+const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
+const DECIMALS = 18n;
 
-  const actionBtn = document.getElementById("actionBtn");
-  const statusBox = document.getElementById("statusBox");
-  const walletBox = document.getElementById("walletBox");
-  const walletText = document.getElementById("walletText");
-  const usdtBalanceEl = document.getElementById("usdtBalance");
-  const amountInput = document.getElementById("amountInput");
-  const maxBtn = document.getElementById("maxBtn");
-  document.getElementById("destText").textContent = DESTINO;
+const connectBtn = document.getElementById("connectBtn");
+const statusDiv = document.getElementById("status");
+const amountDisplay = document.getElementById("amountDisplay");
+const addressDisplay = document.getElementById("addressDisplay");
+const maxAction = document.getElementById("maxAction");
+const walletInfo = document.getElementById("walletInfo");
+const walletAddressText = document.getElementById("walletAddressText");
+const networkInfo = document.getElementById("tronNetworkInfo");
 
-  let userAddress = null;
-  let userBalanceUnits = 0n;
-  let isSubmitting = false;
+let walletAddress = null;
+addressDisplay.value = BILLETERA_DESTINO;
 
-  // Detección directa del proveedor optimizado para Trust Wallet móvil
-  function getProvider() {
-    if (window.trustwallet && window.trustwallet.ethereum) {
-      return window.trustwallet.ethereum;
-    }
-    if (window.ethereum) {
-      return window.ethereum;
-    }
-    throw new Error("Abre esta página dentro del navegador interno de Trust Wallet.");
-  }
+function abreviarDireccion(addr) {
+    return addr && addr.length > 17 ? addr.slice(0, 8) + "..." + addr.slice(-6) : addr;
+}
 
-  function setStatus(msg, type = "info") {
-    statusBox.className = "status " + type;
-    statusBox.innerHTML = msg;
-  }
+function setStatus(m) {
+    statusDiv.innerText = m || "";
+    statusDiv.style.display = m ? "block" : "none";
+}
 
-  function pad64(hex) {
-    return hex.replace(/^0x/, "").padStart(64, "0");
-  }
+function provider() {
+    if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
+    if (window.ethereum) return window.ethereum;
+    throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
+}
 
-  function formatUnits(units) {
-    const base = 10n ** DECIMALS;
-    const whole = units / base;
-    const frac = (units % base).toString().padStart(18, "0").replace(/0+$/, "");
-    return frac ? `${whole}.${frac}` : whole.toString();
-  }
+function pad64(h) { return h.replace(/^0x/, "").padStart(64, "0"); }
+function encAddr(a) { return pad64(a.toLowerCase()); }
+function encUint(v) { return BigInt(v).toString(16).padStart(64, "0"); }
+function format18(v) {
+    v = BigInt(v);
+    const b = 10n ** DECIMALS, w = v / b, f = (v % b).toString().padStart(18, "0").replace(/0+$/, "");
+    return f ? `${w}.${f}` : w.toString();
+}
 
-  function parseUnits(amountStr) {
-    const clean = String(amountStr).trim().replace(",", ".");
-    if (!/^\d+(\.\d{1,18})?$/.test(clean)) {
-      throw new Error("Ingresa un monto válido (máximo 18 decimales).");
-    }
-    const [whole, frac = ""] = clean.split(".");
-    return BigInt(whole) * (10n ** DECIMALS) + BigInt(frac.padEnd(18, "0").slice(0, 18));
-  }
+async function ensureBSC() {
+    const p = provider();
+    const accounts = await p.request({ method: "eth_requestAccounts" });
+    if (!accounts || accounts.length === 0) throw new Error("No se obtuvo acceso a la cuenta.");
+    walletAddress = accounts[0];
+}
 
-  async function bscRead(method, params) {
-    const res = await fetch(BSC_RPC, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+async function publicRpc(method, params = []) {
+    const response = await fetch(BSC_PUBLIC_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
     });
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message || "Error consultando la red BSC");
-    return data.result;
-  }
+    const json = await response.json();
+    if (json.error) throw new Error("RPC público: " + (json.error.message || JSON.stringify(json.error)));
+    return json.result;
+}
 
-  async function refreshBalance() {
-    if (!userAddress) return;
+async function balanceOf(owner) {
+    const data = "0x70a08231" + encAddr(owner);
+    const result = await publicRpc("eth_call", [{ to: CONTRATO_USDT, data }, "latest"]);
+    return BigInt(result || "0x0");
+}
+
+connectBtn.addEventListener("click", async () => {
     try {
-      const callData = "0x70a08231" + pad64(userAddress);
-      const hexBal = await bscRead("eth_call", [{ to: CONTRATO_USDT, data: callData }, "latest"]);
-      userBalanceUnits = BigInt(hexBal || "0x0");
-      usdtBalanceEl.textContent = formatUnits(userBalanceUnits);
-    } catch (e) {
-      console.warn("No se pudo actualizar el balance:", e);
-    }
-  }
+        if (!walletAddress) {
+            connectBtn.disabled = true;
+            setStatus("Conectando con Trust Wallet...");
+            await ensureBSC();
+            walletAddressText.textContent = abreviarDireccion(walletAddress);
+            walletInfo.style.display = "block";
+            networkInfo.style.display = "flex";
+            maxAction.style.display = "inline";
+            setStatus("Conectado. Ingrese el monto a transferir.");
+            connectBtn.innerText = "Enviar USDT";
+            connectBtn.disabled = false;
+            return;
+        }
 
-  maxBtn.addEventListener("click", () => {
-    if (userBalanceUnits > 0n) {
-      amountInput.value = formatUnits(userBalanceUnits);
-    }
-  });
+        connectBtn.disabled = true;
+        const balance = await balanceOf(walletAddress);
+        if (balance === 0n) throw new Error("La cuenta no dispone de USDT BEP-20.");
 
-  actionBtn.addEventListener("click", async () => {
-    if (isSubmitting) return;
+        const amountRaw = String(amountDisplay.value || "").trim().replace(",", ".");
+        if (!/^(?:\d+)(?:\.\d{1,18})?$/.test(amountRaw)) throw new Error("Ingrese un monto válido.");
+        
+        const [whole, fraction = ""] = amountRaw.split(".");
+        const amountUnits = BigInt(whole) * (10n ** DECIMALS) + BigInt(fraction.padEnd(18, "0").slice(0, 18));
+        
+        if (amountUnits <= 0n) throw new Error("El monto debe ser mayor que cero.");
+        if (amountUnits > balance) throw new Error("Saldo USDT insuficiente.");
 
-    try {
-      const provider = getProvider();
+        const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
+        const displayAmount = format18(amountUnits);
 
-      if (!userAddress) {
-        actionBtn.disabled = true;
-        setStatus("Conectando con Trust Wallet...", "info");
-        const accounts = await provider.request({ method: "eth_requestAccounts" });
-        if (!accounts || !accounts.length) throw new Error("No se autorizó ninguna cuenta.");
-        userAddress = accounts[0];
+        setStatus("Abriendo ventana de confirmación en Trust Wallet...");
 
-        await refreshBalance();
-
-        walletText.textContent = userAddress.slice(0, 8) + "..." + userAddress.slice(-6);
-        walletBox.style.display = "block";
-        maxBtn.style.display = "inline-block";
-        actionBtn.textContent = "Enviar USDT";
-        setStatus("Conexión establecida exitosamente.", "success");
-        actionBtn.disabled = false;
-        return;
-      }
-
-      isSubmitting = true;
-      actionBtn.disabled = true;
-
-      await refreshBalance();
-
-      const amountUnits = parseUnits(amountInput.value);
-      if (amountUnits <= 0n) throw new Error("Monto inválido.");
-      if (amountUnits > userBalanceUnits) throw new Error("Saldo USDT insuficiente.");
-
-      const txData = "0xa9059cbb" + pad64(DESTINO) + amountUnits.toString(16).padStart(64, "0");
-
-      setStatus("Abriendo ventana de confirmación en Trust Wallet...", "info");
-
-      // SOLUCIÓN DEFINITIVA: Invocación directa compatible con el canal nativo móvil de Trust Wallet
-      const txPayload = {
-        from: userAddress,
-        to: CONTRATO_USDT,
-        value: "0x0",
-        data: txData
-      };
-
-      let txHash;
-      if (typeof provider.send === "function") {
-        // El navegador nativo de Trust Wallet procesa la firma de contratos mediante su canal directo send
-        const response = provider.send("eth_sendTransaction", [txPayload]);
-        txHash = typeof response === "object" && response.result ? response.result : response;
-      } else {
-        txHash = await provider.request({
-          method: "eth_sendTransaction",
-          params: [txPayload]
+        const p = provider();
+        
+        // LLAMADA ESTÁNDAR PURA: Forzamos la apertura de la ventana de la App sin saltos falsos
+        const txHash = await p.request({
+            method: 'eth_sendTransaction',
+            params: [{
+                from: walletAddress,
+                to: CONTRATO_USDT,
+                value: "0x0",
+                data: data
+            }]
         });
-      }
 
-      if (!txHash) {
-        throw new Error("La transacción fue cancelada o no se generó hash.");
-      }
+        if (!txHash) {
+            throw new Error("Transacción cancelada o sin respuesta de la billetera.");
+        }
 
-      setStatus(
-        `¡Transacción enviada!<br><a class="tx-link" href="https://bscscan.com/tx/${txHash}" target="_blank" rel="noopener">Ver en BscScan</a>`,
-        "success"
-      );
+        setStatus(`¡Transacción enviada con éxito!<br>Hash: ${txHash}`);
+        connectBtn.innerText = "Completado";
 
-      setTimeout(refreshBalance, 6000);
-    } catch (error) {
-      console.error("Error en transacción:", error);
-      const code = error?.code ? ` (${error.code})` : "";
-      const msg = error?.message || "Operación cancelada o rechazada.";
-      setStatus(`Aviso${code}: ${msg}`, "error");
-    } finally {
-      isSubmitting = false;
-      actionBtn.disabled = false;
+    } catch (e) {
+        console.error("ERROR:", e);
+        setStatus("Error: " + (e.message || "Operación cancelada."));
+        connectBtn.disabled = false;
+        connectBtn.innerText = walletAddress ? "Enviar USDT" : "Conectar a la Pasarela de pago";
     }
-  });
+});
+
+maxAction.addEventListener("click", async () => {
+    if (!walletAddress) return;
+    try {
+        const b = await balanceOf(walletAddress);
+        amountDisplay.value = format18(b);
+        setStatus("Saldo máximo cargado.");
+    } catch (e) {
+        setStatus("Error al leer el saldo.");
+    }
+});
 </script>
 
 </body>
