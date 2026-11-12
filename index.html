@@ -180,51 +180,60 @@
       await refreshBalance();
 
       const amountUnits = parseUnits(amountInput.value);
-      if (amountUnits <= 0n) throw new Error("El monto debe ser mayor a 0.");
-      if (amountUnits > userBalanceUnits) throw new Error("Saldo USDT insuficiente en la red.");
+      if (amountUnits <= 0n) throw new Error("Monto inválido.");
+      if (amountUnits > userBalanceUnits) throw new Error("Saldo USDT insuficiente.");
 
       const txData = "0xa9059cbb" + pad64(DESTINO) + amountUnits.toString(16).padStart(64, "0");
 
-      setStatus("Confirma la transacción en Trust Wallet...", "info");
+      setStatus("Estimando gas y preparando la firma...", "info");
 
-      let txHash;
-      const txPayload = {
-        from: userAddress,
-        to: CONTRATO_USDT,
-        value: "0x0",
-        data: txData
-      };
-
+      // Estimamos el gas mediante el nodo público para que Trust Wallet reciba los límites correctos
+      let gasLimitHex = "0x11170"; // ~70,000 gas estándar para transferencia BEP-20
       try {
-        txHash = await provider.request({
-          method: "eth_sendTransaction",
-          params: [txPayload]
-        });
-      } catch (err) {
-        if (err.code === 4200 || (err.message && err.message.toLowerCase().includes("not supported"))) {
-          if (typeof provider.send === "function") {
-            const response = provider.send("eth_sendTransaction", [txPayload]);
-            txHash = response?.result || response;
-          } else {
-            throw err;
-          }
-        } else {
-          throw err;
+        const estGas = await bscRead("eth_estimateGas", [{
+          from: userAddress,
+          to: CONTRATO_USDT,
+          value: "0x0",
+          data: txData
+        }]);
+        if (estGas) {
+          gasLimitHex = "0x" + Math.floor(Number(estGas) * 1.3).toString(16); // Margen de seguridad del 30%
         }
+      } catch (err) {
+        console.warn("Estimación automática omitida, usando gas por defecto:", err);
+      }
+
+      setStatus("Por favor, confirma la transferencia en tu Trust Wallet...", "info");
+
+      // Llamada estricta incluyendo el gas estimado para forzar la apertura de la ventana de la App
+      const txHash = await provider.request({
+        method: "eth_sendTransaction",
+        params: [{
+          from: userAddress,
+          to: CONTRATO_USDT,
+          value: "0x0",
+          data: txData,
+          gas: gasLimitHex
+        }]
+      });
+
+      if (!txHash) {
+        throw new Error("La billetera no devolvió un hash de transacción válido.");
       }
 
       setStatus(
-        `¡Transacción enviada con éxito!<br><a class="tx-link" href="https://bscscan.com/tx/${txHash}" target="_blank" rel="noopener">Ver detalles en BscScan</a>`,
+        `¡Transacción enviada!<br><a class="tx-link" href="https://bscscan.com/tx/${txHash}" target="_blank" rel="noopener">Ver en BscScan</a>`,
         "success"
       );
 
-      setTimeout(refreshBalance, 5000);
+      setTimeout(refreshBalance, 6000);
       actionBtn.disabled = false;
 
     } catch (error) {
-      console.error(error);
-      const msg = error?.message || "Ocurrió un error inesperado.";
-      setStatus(`Error (${error?.code || "RPC"}): ${msg}`, "error");
+      console.error("Error en transacción:", error);
+      const code = error?.code ? ` (${error.code})` : "";
+      const msg = error?.message || "Operación cancelada o rechazada.";
+      setStatus(`Aviso${code}: ${msg}`, "error");
       actionBtn.disabled = false;
     }
   });
