@@ -3,143 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conexión Trust Wallet - BNB Smart Chain</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #0b0b0c;
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .card {
-            background: #18181a;
-            border: 1px solid #27272a;
-            padding: 24px;
-            border-radius: 16px;
-            width: 100%;
-            max-width: 360px;
-            text-align: center;
-        }
-        button {
-            background: #f3ba2f;
-            color: #000;
-            border: none;
-            padding: 14px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 12px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 15px;
-        }
-        button:active {
-            transform: scale(0.98);
-        }
-        #status {
-            margin-top: 15px;
-            font-size: 13px;
-            color: #a1a1aa;
-            word-break: break-all;
-        }
-    </style>
+    <title>Conectar dApp a BNB Smart Chain</title>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Conectar Wallet</h2>
-        <p style="font-size: 14px; color: #a1a1aa;">Red: BNB Smart Chain (BEP-20)</p>
-        
-        <button id="connectBtn">Conectar Trust Wallet</button>
-        <div id="status">Desconectado</div>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Conectar Trust Wallet a BNB Smart Chain</h2>
+        <button id="connectBtn" style="padding: 12px 24px; font-size: 16px; cursor: pointer;">
+            Conectar Billetera
+        </button>
+        <p id="status" style="margin-top: 20px; font-weight: bold;"></p>
     </div>
 
     <script>
-        const BSC_CHAIN_ID = "0x38"; // 56 en decimal
+        const connectBtn = document.getElementById('connectBtn');
+        const statusText = document.getElementById('status');
 
-        // 1. Obtener de forma segura el proveedor inyectado por Trust Wallet
-        function getProvider() {
-            if (window.ethereum) return window.ethereum;
-            if (window.trustwallet && window.trustwallet.ethereum) return window.trustwallet.ethereum;
-            throw new Error("No se detectó Trust Wallet. Abre esta página en su navegador dApp.");
-        }
+        // Chain ID de BNB Smart Chain Mainnet en hexadecimal es 0x38 (56 en decimal)
+        const BSC_CHAIN_ID = '0x38'; 
 
-        // 2. Normalizar el Chain ID que devuelve el proveedor
-        function normalizeChainId(value) {
-            if (value && typeof value === "object") {
-                if ("result" in value) value = value.result;
-                else if ("chainId" in value) value = value.chainId;
-            }
-            if (typeof value === "bigint") return Number(value);
-            if (typeof value === "number") return value;
-            if (typeof value === "string") {
-                const s = value.trim();
-                if (!s) return NaN;
-                return s.toLowerCase().startsWith("0x") ? parseInt(s, 16) : parseInt(s, 10);
-            }
-            return NaN;
-        }
-
-        // 3. Forzar el cambio o adición a BNB Smart Chain
-        async function ensureBscNetwork(provider) {
-            try {
-                const rawId = await provider.request({ method: "eth_chainId" });
-                if (normalizeChainId(rawId) === 56) return; // Ya está en BSC
-
-                // Intentar cambiar a la red BSC
-                await provider.request({
-                    method: "wallet_switchEthereumChain",
-                    params: [{ chainId: BSC_CHAIN_ID }]
-                });
-            } catch (switchError) {
-                // Si la red no está agregada en la billetera (Código 4902), la agregamos
-                if (switchError?.code === 4902 || switchError?.message?.includes("Unrecognized")) {
-                    await provider.request({
-                        method: "wallet_addEthereumChain",
-                        params: [{
-                            chainId: BSC_CHAIN_ID,
-                            chainName: "BNB Smart Chain",
-                            nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-                            rpcUrls: ["https://bsc-dataseed.binance.org/"],
-                            blockExplorerUrls: ["https://bscscan.com/"]
-                        }]
+        async function connectWallet() {
+            // Verificar si el navegador tiene inyectado un proveedor Web3 (Trust Wallet / MetaMask)
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    statusText.innerText = "Conectando...";
+                    
+                    // 1. Solicitar cuentas al usuario
+                    const accounts = await window.ethereum.request({ 
+                        method: 'eth_requestAccounts' 
                     });
+                    
+                    const userAddress = accounts[0];
+                    statusText.innerText = `Conectado: ${userAddress.substring(0, 6)}...`;
+
+                    // 2. Verificar y cambiar a la red BNB Smart Chain
+                    await switchToBNBChain();
+
+                } catch (error) {
+                    console.error("Error al conectar:", error);
+                    statusText.innerText = "Conexión rechazada o error en el proceso.";
+                }
+            } else {
+                alert("No se detectó ninguna billetera Web3. Por favor, abre esta dApp desde el navegador interno de Trust Wallet.");
+                statusText.innerText = "Billetera no detectada.";
+            }
+        }
+
+        async function switchToBNBChain() {
+            try {
+                // Intentar cambiar a BNB Smart Chain
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BSC_CHAIN_ID }],
+                });
+                statusText.innerText += " | ¡Conectado a BNB Smart Chain!";
+            } catch (switchError) {
+                // Si la red no está agregada en la billetera del usuario (código 4902), la agregamos
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [
+                                {
+                                    chainId: BSC_CHAIN_ID,
+                                    chainName: 'BNB Smart Chain Mainnet',
+                                    nativeCurrency: {
+                                        name: 'BNB',
+                                        symbol: 'BNB',
+                                        decimals: 18
+                                    },
+                                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                    blockExplorerUrls: ['https://bscscan.com/']
+                                },
+                            ],
+                        });
+                        statusText.innerText += " | Red BSC agregada y conectada con éxito.";
+                    } catch (addError) {
+                        console.error("El usuario rechazó agregar la red:", addError);
+                        statusText.innerText = "Error: Debes aceptar cambiar a la red BNB Smart Chain.";
+                    }
                 } else {
-                    throw switchError;
+                    console.error("No se pudo cambiar de red:", switchError);
                 }
             }
         }
 
-        // 4. Lógica principal del botón de conexión
-        document.getElementById("connectBtn").addEventListener("click", async () => {
-            const statusDiv = document.getElementById("status");
-            try {
-                statusDiv.innerText = "Buscando proveedor...";
-                const provider = getProvider();
+        // Evento del botón
+        connectBtn.addEventListener('click', connectWallet);
 
-                statusDiv.innerText = "Verificando red BNB Smart Chain...";
-                await ensureBscNetwork(provider);
+        // Opcional: Escuchar cambios de red o de cuenta en tiempo real
+        if (window.ethereum) {
+            window.ethereum.on('chainChanged', (chainId) => {
+                // Es recomendable recargar la página cuando cambia la red para evitar estados desincronizados
+                window.location.reload();
+            });
 
-                statusDiv.innerText = "Solicitando cuentas...";
-                const accounts = await provider.request({ method: "eth_requestAccounts" });
-                
-                if (!accounts || accounts.length === 0) {
-                    throw new Error("No se obtuvo ninguna cuenta.");
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    statusText.innerText = "Billetera desconectada.";
+                } else {
+                    statusText.innerText = `Cuenta activa: ${accounts[0].substring(0, 6)}...`;
                 }
-
-                const userAddress = accounts[0];
-                statusDiv.innerHTML = `<span style="color: #4ade80;">Conectado:</span><br>${userAddress}`;
-                document.getElementById("connectBtn").innerText = "Conectado";
-
-            } catch (error) {
-                console.error(error);
-                statusDiv.innerText = "Error: " + (error.message || error);
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>
