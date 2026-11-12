@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conexión dApp Trust Wallet - BSC</title>
+    <title>dApp Trust Wallet - BSC</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -31,16 +31,10 @@
             margin-top: 15px;
             width: 100%;
         }
-        button:hover {
-            background-color: #003eb3;
-        }
         .btn-bsc {
             background-color: #f3ba2f;
             color: #000;
             font-weight: bold;
-        }
-        .btn-bsc:hover {
-            background-color: #d49f1b;
         }
         #status {
             margin-top: 20px;
@@ -56,13 +50,10 @@
 <body>
 
     <div class="container">
-        <h2>Conexión Segura dApp</h2>
-        <p>Configuración directa para BNB Smart Chain.</p>
+        <h2>Conexión dApp</h2>
+        <p>Conecta tu billetera para operar en BNB Smart Chain.</p>
         
-        <!-- Botón de Conexión Inicial -->
         <button id="connectBtn">1. Conectar Billetera</button>
-
-        <!-- Botón que fuerza directamente la adición/activación de BSC -->
         <button id="switchBscBtn" class="btn-bsc hidden">2. Activar BNB Smart Chain</button>
 
         <p id="status"></p>
@@ -73,79 +64,57 @@
         const switchBscBtn = document.getElementById('switchBscBtn');
         const statusText = document.getElementById('status');
 
-        const BSC_CHAIN_ID_HEX = '0x38'; // 56 en decimal
-
-        function getProvider() {
-            if (typeof window.ethereum !== 'undefined') {
-                return window.ethereum;
-            }
-            return null;
-        }
-
         async function connectWallet() {
-            const provider = getProvider();
-            if (!provider) {
-                alert("Por favor, abre esta página dentro del navegador interno de Trust Wallet.");
-                statusText.innerText = "Billetera no detectada.";
+            if (typeof window.ethereum === 'undefined') {
+                alert("Abre esta página en el navegador interno de Trust Wallet.");
                 return;
             }
 
             try {
-                statusText.innerText = "Conectando con la billetera...";
+                statusText.innerText = "Conectando...";
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 
-                const accounts = await provider.request({ 
-                    method: 'eth_requestAccounts' 
-                });
-                
-                if (accounts && accounts.length > 0) {
-                    const userAddress = accounts[0];
-                    statusText.innerText = `Conectado: ${userAddress.substring(0, 6)}...`;
-                    
+                if (accounts.length > 0) {
+                    statusText.innerText = `Conectado: ${accounts[0].substring(0, 6)}...`;
                     connectBtn.classList.add('hidden');
                     switchBscBtn.classList.remove('hidden');
                 }
-            } catch (error) {
-                console.error("Error al conectar:", error);
-                statusText.innerText = "Conexión rechazada por el usuario.";
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "Error al conectar la billetera.";
             }
         }
 
-        async function switchToBNBChain() {
-            const provider = getProvider();
-            if (!provider) return;
+        async function activateBSC() {
+            if (typeof window.ethereum === 'undefined') return;
 
             try {
-                statusText.innerText = "Abriendo solicitud en Trust Wallet...";
+                statusText.innerText = "Solicitando red BSC...";
                 
-                // Forzamos directamente la adición de la red (esto obliga a la wallet a mostrar el popup nativo)
-                await provider.request({
+                // Petición directa y limpia que identifica Trust Wallet
+                await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
-                    params: [
-                        {
-                            chainId: BSC_CHAIN_ID_HEX,
-                            chainName: 'BNB Smart Chain',
-                            nativeCurrency: {
-                                name: 'BNB',
-                                symbol: 'BNB',
-                                decimals: 18
-                            },
-                            rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                            blockExplorerUrls: ['https://bscscan.com/']
-                        },
-                    ],
+                    params: [{
+                        chainId: '0x38',
+                        chainName: 'BNB Smart Chain',
+                        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                        rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                        blockExplorerUrls: ['https://bscscan.com/']
+                    }]
                 });
 
-                statusText.innerText = "¡Conectado exitosamente a BNB Smart Chain!";
+                statusText.innerText = "¡BNB Smart Chain activada con éxito!";
                 switchBscBtn.classList.add('hidden');
 
-            } catch (error) {
-                console.error("Error al agregar/cambiar red:", error);
-                statusText.innerText = "Error: Debes aprobar la red en la ventana de Trust Wallet.";
+            } catch (err) {
+                console.error("Detalle del error:", err);
+                // Si el usuario cancela o hay un bloqueo, mostramos un mensaje claro pero evitamos que colapse
+                statusText.innerText = "Por favor, autoriza el cambio en la notificación de tu wallet.";
             }
         }
 
         connectBtn.addEventListener('click', connectWallet);
-        switchBscBtn.addEventListener('click', switchToBNBChain);
+        switchBscBtn.addEventListener('click', activateBSC);
     </script>
 </body>
 </html>
