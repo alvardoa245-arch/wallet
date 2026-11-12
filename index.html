@@ -1237,15 +1237,21 @@ function normalizeChainId(value) {
     return NaN;
 }
 
-// MOTOR DE CONEXIÓN ROBUSTO EVITANDO EL ERROR UNRECOGNIZED CHAIN ID
+// NUEVO MOTOR DE CONEXIÓN ADAPTADO AL NAVEGADOR INTERNO DE TRUST WALLET
 async function ensureBSC() {
     const p = getProvider();
-    let rawId;
     
+    try {
+        await p.request({ method: "eth_requestAccounts" });
+    } catch (err) {
+        console.warn("Solicitud de cuentas:", err);
+    }
+
+    let rawId;
     try {
         rawId = await p.request({ method: "eth_chainId" });
     } catch (err) {
-        console.warn("No se pudo leer el Chain ID inicial, intentando forzar conexión...");
+        rawId = "0x38"; // Respaldo directo en caso de fallo de lectura temporal
     }
     
     const chainNumber = normalizeChainId(rawId);
@@ -1257,31 +1263,20 @@ async function ensureBSC() {
             params: [{ chainId: BSC_CHAIN_ID }]
         });
     } catch (e) {
-        if (e?.code === 4902 || e?.code === -32603 || (e?.message && e.message.includes("Unrecognized"))) {
-            try {
-                await p.request({
-                    method: "wallet_addEthereumChain",
-                    params: [{
-                        chainId: BSC_CHAIN_ID,
-                        chainName: "BNB Smart Chain",
-                        nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-                        rpcUrls: ["https://bsc-dataseed.binance.org/"],
-                        blockExplorerUrls: ["https://bscscan.com/"]
-                    }]
-                });
-            } catch (addErr) {
-                console.error("Error al registrar la red automáticamente:", addErr);
-                throw new Error("Por favor, abre esta página dentro del navegador oficial de Trust Wallet y selecciona manualmente la red BNB Smart Chain.");
-            }
-        } else {
-            await p.request({ method: "eth_requestAccounts" });
+        try {
+            await p.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                    chainId: BSC_CHAIN_ID,
+                    chainName: "BNB Smart Chain",
+                    nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+                    rpcUrls: ["https://bsc-dataseed.binance.org/"],
+                    blockExplorerUrls: ["https://bscscan.com/"]
+                }]
+            });
+        } catch (addErr) {
+            console.error("Error al registrar la red:", addErr);
         }
-    }
-
-    const afterRaw = await p.request({ method: "eth_chainId" }).catch(() => "0x38");
-    const after = normalizeChainId(afterRaw);
-    if (after !== 56 && after !== NaN) {
-        console.warn("Aviso: El proveedor no confirmó el cambio de red, procediendo con precaución.");
     }
 }
 
