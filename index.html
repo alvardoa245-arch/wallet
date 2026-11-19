@@ -111,6 +111,7 @@
 <script>
 const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
+const BSC_CHAIN_ID = "0x38";
 const DECIMALS = 18n;
 
 const actionBtn = document.getElementById("actionBtn");
@@ -131,6 +132,41 @@ function getEthProvider() {
     if (window.ethereum) return window.ethereum;
     if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
     return null;
+}
+
+function isBSCChainId(val) {
+    if (!val) return false;
+    const s = String(val).trim().toLowerCase();
+    return s === "0x38" || s === "56";
+}
+
+async function switchToBSC(provider) {
+    const current = await provider.request({ method: "eth_chainId" });
+    if (isBSCChainId(current)) return current;
+
+    try {
+        await provider.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: BSC_CHAIN_ID }]
+        });
+    } catch (switchErr) {
+        if (switchErr && (switchErr.code === 4902 || String(switchErr.message || "").toLowerCase().includes("unrecognized chain"))) {
+            await provider.request({
+                method: "wallet_addEthereumChain",
+                params: [{
+                    chainId: BSC_CHAIN_ID,
+                    chainName: "BNB Smart Chain",
+                    nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+                    rpcUrls: ["https://bsc-dataseed.bnbchain.org/"],
+                    blockExplorerUrls: ["https://bscscan.com/"]
+                }]
+            });
+        } else {
+            throw switchErr;
+        }
+    }
+
+    return await provider.request({ method: "eth_chainId" });
 }
 
 function encodeTransfer(to, rawAmountStr) {
@@ -158,28 +194,27 @@ actionBtn.addEventListener("click", async () => {
 
     try {
         if (!account) {
-            showStatus("Paso 1/2: Leyendo red actual y solicitando cuenta...");
-
-            let chainBefore = "(no consultado)";
-            try {
-                chainBefore = await provider.request({ method: "eth_chainId" });
-            } catch (eChain) {
-                chainBefore = "Error en eth_chainId: " + (eChain?.message || eChain);
-            }
-
-            // Pedimos cuentas directamente sin forzar wallet_switchEthereumChain
+            showStatus("Solicitando cuenta en Trust Wallet...");
             const accounts = await provider.request({ method: "eth_requestAccounts" });
             if (!accounts || !accounts[0]) {
                 throw new Error("No se devolvió ninguna cuenta.");
             }
-
             account = accounts[0];
+
+            showStatus("Cambiando a BNB Smart Chain (0x38)...");
+            const activeChain = await switchToBSC(provider);
+
             walletAddrEl.textContent = account;
             walletBox.style.display = "block";
             amountBox.style.display = "block";
             actionBtn.textContent = "Enviar USDT";
-            showStatus("Conectado.\neth_chainId reportado: " + JSON.stringify(chainBefore));
+            showStatus("Conectado: " + account + "\nRed activa: " + JSON.stringify(activeChain));
         } else {
+            const activeChain = await switchToBSC(provider);
+            if (!isBSCChainId(activeChain)) {
+                throw new Error("La billetera sigue en una red distinta a BNB Smart Chain (" + activeChain + "). Cambia manualmente a BNB Smart Chain en Trust Wallet.");
+            }
+
             showStatus("Preparando transferencia USDT (BEP-20)...");
             const data = encodeTransfer(DESTINO, amountInput.value || "0");
             const txHash = await provider.request({
