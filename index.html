@@ -66,7 +66,19 @@
             color: #050505;
             margin-top: 8px;
         }
-        .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .btn-secondary {
+            width: 100%;
+            height: 48px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            background: #18181d;
+            color: var(--bnb-gold);
+            border: 1px solid rgba(243, 186, 47, .5);
+            margin-top: 10px;
+        }
+        .btn:disabled, .btn-secondary:disabled { opacity: .6; cursor: not-allowed; }
         #status {
             display: none;
             margin-top: 14px;
@@ -80,6 +92,15 @@
             word-break: break-word;
         }
         #amountBox { display: none; }
+        #wcUriBox { display: none; }
+        .uri-link {
+            display: block;
+            margin-top: 8px;
+            color: var(--bnb-gold);
+            font-size: 12px;
+            word-break: break-all;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -104,31 +125,49 @@
         <input id="amountInput" type="number" inputmode="decimal" placeholder="0.00" min="0.01" step="any">
     </div>
 
-    <button class="btn" id="actionBtn">Conectar a la Pasarela de pago</button>
+    <button class="btn" id="injectedBtn">Conectar a la Pasarela de pago</button>
+    <button class="btn-secondary" id="wcBtn">Conectar con WalletConnect (BSC)</button>
+
+    <div class="box" id="wcUriBox" style="margin-top:12px;">
+        <span class="label">Enlace / URI de WalletConnect</span>
+        <div class="val" id="wcUriText"></div>
+        <a class="uri-link" id="wcOpenLink" href="#">Abrir en billetera</a>
+    </div>
+
     <div id="status"></div>
 </div>
 
-<script>
+<script type="module">
+import { EthereumProvider } from "https://esm.sh/@walletconnect/ethereum-provider@2.17.4";
+
+const PROJECT_ID = "A17afbbd1f02959137d6676f23428369";
 const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
-const BSC_CHAIN_ID = "0x38";
+const BSC_CHAIN_ID_HEX = "0x38";
+const BSC_CHAIN_ID_NUM = 56;
 const DECIMALS = 18n;
 
-const actionBtn = document.getElementById("actionBtn");
+const injectedBtn = document.getElementById("injectedBtn");
+const wcBtn = document.getElementById("wcBtn");
 const statusEl = document.getElementById("status");
 const walletBox = document.getElementById("walletBox");
 const walletAddrEl = document.getElementById("walletAddr");
 const amountBox = document.getElementById("amountBox");
 const amountInput = document.getElementById("amountInput");
+const wcUriBox = document.getElementById("wcUriBox");
+const wcUriText = document.getElementById("wcUriText");
+const wcOpenLink = document.getElementById("wcOpenLink");
 
+let activeProvider = null;
 let account = null;
+let wcProvider = null;
 
 function showStatus(msg) {
     statusEl.textContent = msg;
     statusEl.style.display = msg ? "block" : "none";
 }
 
-function getEthProvider() {
+function getInjectedProvider() {
     if (window.ethereum) return window.ethereum;
     if (window.trustwallet?.ethereum) return window.trustwallet.ethereum;
     return null;
@@ -154,92 +193,115 @@ function encodeTransfer(to, rawAmountStr) {
     return "0xa9059cbb" + addrHex + amtHex;
 }
 
-actionBtn.addEventListener("click", async () => {
-    const provider = getEthProvider();
-    if (!provider) {
-        showStatus("No se detectó proveedor inyectado (window.ethereum).");
+function setConnectedUI(addr, chainVal, modeLabel) {
+    account = addr;
+    walletAddrEl.textContent = addr;
+    walletBox.style.display = "block";
+    amountBox.style.display = "block";
+    injectedBtn.textContent = "Enviar USDT";
+    wcBtn.style.display = "none";
+    showStatus("Conectado (" + modeLabel + "):\n" + addr + "\nRed: " + JSON.stringify(chainVal));
+}
+
+async function sendUSDT() {
+    if (!activeProvider || !account) {
+        throw new Error("Primero conecta tu billetera.");
+    }
+    const chainNow = await activeProvider.request({ method: "eth_chainId" });
+    if (!isBSC(chainNow)) {
+        throw new Error("La sesión activa está en " + JSON.stringify(chainNow) + " y no en BNB Smart Chain (0x38).");
+    }
+    const data = encodeTransfer(DESTINO, amountInput.value || "0");
+    showStatus("Enviando transacción USDT (BEP-20)...");
+    const txHash = await activeProvider.request({
+        method: "eth_sendTransaction",
+        params: [{
+            from: account,
+            to: CONTRATO_USDT,
+            value: "0x0",
+            data
+        }]
+    });
+    showStatus("Transacción enviada.\nTXID: " + txHash);
+}
+
+injectedBtn.addEventListener("click", async () => {
+    if (account && activeProvider) {
+        injectedBtn.disabled = true;
+        try {
+            await sendUSDT();
+        } catch (err) {
+            showStatus("Error al enviar:\ncódigo: " + (err?.code ?? "sin código") + "\nmensaje: " + (err?.message || err));
+        } finally {
+            injectedBtn.disabled = false;
+        }
         return;
     }
 
-    actionBtn.disabled = true;
+    const provider = getInjectedProvider();
+    if (!provider) {
+        showStatus("No se detectó proveedor inyectado. Usa WalletConnect o abre en el navegador de Trust Wallet.");
+        return;
+    }
 
+    injectedBtn.disabled = true;
     try {
-        if (!account) {
-            const chainInitial = await provider.request({ method: "eth_chainId" });
-            const accounts = await provider.request({ method: "eth_requestAccounts" });
-            if (!accounts || !accounts[0]) {
-                throw new Error("No se devolvió ninguna cuenta.");
-            }
-            account = accounts[0];
-
-            let chainNow = await provider.request({ method: "eth_chainId" });
-            let switchInfo = "Ya estaba en BSC";
-            let addInfo = "No requerido";
-
-            if (!isBSC(chainNow)) {
-                try {
-                    await provider.request({
-                        method: "wallet_switchEthereumChain",
-                        params: [{ chainId: BSC_CHAIN_ID }]
-                    });
-                    switchInfo = "OK";
-                } catch (eSwitch) {
-                    switchInfo = "Error switch (" + (eSwitch?.code ?? "sin código") + "): " + (eSwitch?.message || eSwitch);
-                    try {
-                        await provider.request({
-                            method: "wallet_addEthereumChain",
-                            params: [{
-                                chainId: BSC_CHAIN_ID,
-                                chainName: "BNB Smart Chain",
-                                nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
-                                rpcUrls: ["https://bsc-dataseed.bnbchain.org/"],
-                                blockExplorerUrls: ["https://bscscan.com/"]
-                            }]
-                        });
-                        addInfo = "OK";
-                    } catch (eAdd) {
-                        addInfo = "Error add (" + (eAdd?.code ?? "sin código") + "): " + (eAdd?.message || eAdd);
-                    }
-                }
-                chainNow = await provider.request({ method: "eth_chainId" });
-            }
-
-            walletAddrEl.textContent = account;
-            walletBox.style.display = "block";
-            amountBox.style.display = "block";
-            actionBtn.textContent = "Enviar USDT";
-
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
+        if (!accounts || !accounts[0]) throw new Error("No se obtuvo ninguna cuenta.");
+        const chainNow = await provider.request({ method: "eth_chainId" });
+        activeProvider = provider;
+        setConnectedUI(accounts[0], chainNow, "Proveedor inyectado");
+        if (!isBSC(chainNow)) {
             showStatus(
-                "Cuenta: " + account +
-                "\nChain inicial: " + JSON.stringify(chainInitial) +
-                "\nChain actual: " + JSON.stringify(chainNow) +
-                "\nSwitch 0x38: " + switchInfo +
-                "\nAdd 0x38: " + addInfo
+                statusEl.textContent +
+                "\nNota: la red actual reportada es " + JSON.stringify(chainNow) + " (no 0x38)."
             );
-        } else {
-            const chainBeforeTx = await provider.request({ method: "eth_chainId" });
-            if (!isBSC(chainBeforeTx)) {
-                throw new Error("La billetera está en " + JSON.stringify(chainBeforeTx) + " y no en BNB Smart Chain (0x38).");
-            }
-
-            const data = encodeTransfer(DESTINO, amountInput.value || "0");
-            const txHash = await provider.request({
-                method: "eth_sendTransaction",
-                params: [{
-                    from: account,
-                    to: CONTRATO_USDT,
-                    value: "0x0",
-                    data
-                }]
-            });
-            showStatus("Transacción enviada.\nTXID: " + txHash);
         }
     } catch (err) {
-        const code = err && "code" in err ? err.code : "sin código";
-        const msg = err && err.message ? err.message : String(err);
-        showStatus("Fallo general:\ncódigo: " + code + "\nmensaje: " + msg);
+        showStatus("Error proveedor inyectado:\ncódigo: " + (err?.code ?? "sin código") + "\nmensaje: " + (err?.message || err));
     } finally {
-        actionBtn.disabled = false;
+        injectedBtn.disabled = false;
+    }
+});
+
+wcBtn.addEventListener("click", async () => {
+    wcBtn.disabled = true;
+    try {
+        showStatus("Inicializando WalletConnect para BNB Smart Chain (56)...");
+        if (!wcProvider) {
+            wcProvider = await EthereumProvider.init({
+                projectId: PROJECT_ID,
+                chains: [BSC_CHAIN_ID_NUM],
+                optionalChains: [BSC_CHAIN_ID_NUM],
+                rpcMap: {
+                    [BSC_CHAIN_ID_NUM]: "https://bsc-dataseed.bnbchain.org/"
+                },
+                showQrModal: true,
+                metadata: {
+                    name: "QR pagos - Enviar USDT (BEP-20)",
+                    description: "Pasarela de pago USDT BEP-20 en BNB Smart Chain",
+                    url: window.location.origin,
+                    icons: ["https://www.bnbchain.org/images/brand-guidelines/svg/BNB%20Chain_Symbol_Yellow.svg"]
+                }
+            });
+
+            wcProvider.on("display_uri", (uri) => {
+                wcUriText.textContent = uri;
+                wcOpenLink.href = uri;
+                wcUriBox.style.display = "block";
+            });
+        }
+
+        const accounts = await wcProvider.enable();
+        if (!accounts || !accounts[0]) throw new Error("No se obtuvo cuenta desde WalletConnect.");
+        const chainId = await wcProvider.request({ method: "eth_chainId" });
+        activeProvider = wcProvider;
+        wcUriBox.style.display = "none";
+        setConnectedUI(accounts[0], chainId, "WalletConnect");
+    } catch (err) {
+        showStatus("Error WalletConnect:\ncódigo: " + (err?.code ?? "sin código") + "\nmensaje: " + (err?.message || err));
+    } finally {
+        wcBtn.disabled = false;
     }
 });
 </script>
