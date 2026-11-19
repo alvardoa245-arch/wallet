@@ -137,13 +137,10 @@
     <div id="status"></div>
 </div>
 
-<script type="module">
-import { EthereumProvider } from "https://esm.sh/@walletconnect/ethereum-provider@2.17.4";
-
+<script>
 const PROJECT_ID = "A17afbbd1f02959137d6676f23428369";
 const DESTINO = "0x445a69f88106ae1e22fb38e282b5b04e82fb2c25";
 const CONTRATO_USDT = "0x55d398326f99059fF775485246999027B3197955";
-const BSC_CHAIN_ID_HEX = "0x38";
 const BSC_CHAIN_ID_NUM = 56;
 const DECIMALS = 18n;
 
@@ -267,8 +264,15 @@ injectedBtn.addEventListener("click", async () => {
 wcBtn.addEventListener("click", async () => {
     wcBtn.disabled = true;
     try {
-        showStatus("Inicializando WalletConnect para BNB Smart Chain (56)...");
+        showStatus("Paso 1/3: Cargando librería de WalletConnect...");
+        const mod = await import("https://esm.sh/@walletconnect/ethereum-provider@2.17.4");
+        const EthereumProvider = mod.EthereumProvider;
+        if (!EthereumProvider) {
+            throw new Error("No se encontró EthereumProvider en el módulo cargado.");
+        }
+
         if (!wcProvider) {
+            showStatus("Paso 2/3: Inicializando proveedor para BNB Smart Chain (56)...");
             wcProvider = await EthereumProvider.init({
                 projectId: PROJECT_ID,
                 chains: [BSC_CHAIN_ID_NUM],
@@ -292,6 +296,7 @@ wcBtn.addEventListener("click", async () => {
             });
         }
 
+        showStatus("Paso 3/3: Solicitando conexión de sesión (revisa el modal o enlace URI)...");
         const accounts = await wcProvider.enable();
         if (!accounts || !accounts[0]) throw new Error("No se obtuvo cuenta desde WalletConnect.");
         const chainId = await wcProvider.request({ method: "eth_chainId" });
